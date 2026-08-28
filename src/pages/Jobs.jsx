@@ -136,6 +136,11 @@ export default function Jobs({ searchQuery }) {
               <span>{safe(job.location)}</span>
               <span>{formatSalary(job.salaryMin, job.salaryMax, job.salaryCurrency)}</span>
             </div>
+            {job.description && job.description.length > 10 && (
+              <div style={{fontSize:'0.7rem', color:'var(--fg-dim)', marginTop:'0.25rem', lineHeight:'1.3', opacity:0.7, display:'-webkit-box', WebkitLineClamp:2, WebkitBoxOrient:'vertical', overflow:'hidden'}}>
+                {safe(job.description).slice(0, 200)}
+              </div>
+            )}
             <div className="card-meta" style={{marginTop:'0.3rem'}}>
               <span className={`card-tag ${safe(job.remote) === 'Remote' ? 'green' : safe(job.remote) === 'Hybrid' ? 'amber' : 'blue'}`}>
                 {safe(job.remote, 'Remote')}
