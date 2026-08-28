@@ -1,6 +1,7 @@
 import { useMemo, useState, useEffect, useCallback } from 'react'
 import { deduplicateJobs } from '../engine/dedup'
 import { fetchAllJobs } from '../api/jobFetchers'
+import { fetchOnce } from '../api/dataCache'
 
 function formatSalary(min, max, currency) {
   if (!min && !max) return ''
@@ -27,7 +28,7 @@ export default function Jobs({ searchQuery }) {
   useEffect(() => {
     let cancelled = false
     setLoading(true)
-    fetchAllJobs().then(({ jobs, errors }) => {
+    fetchOnce('jobs', fetchAllJobs).then(({ jobs, errors }) => {
       if (!cancelled) {
         setAllJobs(jobs)
         setFetchErrors(errors)

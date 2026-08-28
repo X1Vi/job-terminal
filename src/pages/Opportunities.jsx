@@ -2,6 +2,7 @@ import { useMemo, useState, useEffect } from 'react'
 import { OPP_TYPES, OPP_FIELDS, OPP_REGIONS } from '../data/sources'
 import { deduplicateOpportunities } from '../engine/dedup'
 import { fetchAllOpportunities } from '../api/oppFetchers'
+import { fetchOnce } from '../api/dataCache'
 
 function safe(v, fb = '') { return v ?? fb }
 
@@ -18,7 +19,7 @@ export default function Opportunities({ searchQuery }) {
   useEffect(() => {
     let cancelled = false
     setLoading(true)
-    fetchAllOpportunities().then(({ opportunities, errors }) => {
+    fetchOnce('opportunities', fetchAllOpportunities).then(({ opportunities, errors }) => {
       if (!cancelled) {
         setAllOpps(opportunities || [])
         setFetchErrors(errors || [])

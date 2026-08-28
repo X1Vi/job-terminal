@@ -6,6 +6,7 @@ import {
 import { deduplicateJobs, calculateStats, deduplicateOpportunities, calculateOppStats } from '../engine/dedup'
 import { fetchAllJobs } from '../api/jobFetchers'
 import { fetchAllOpportunities } from '../api/oppFetchers'
+import { fetchOnce } from '../api/dataCache'
 
 const CHART_COLORS = ['#78b878', '#c8944a', '#5aa8b8', '#b85050', '#8a7ab8', '#b8a060', '#5ab8a0', '#c87878']
 
@@ -84,8 +85,8 @@ export default function Dashboard({ searchQuery }) {
   useEffect(() => {
     let cancelled = false
     Promise.allSettled([
-      fetchAllJobs(),
-      fetchAllOpportunities(),
+      fetchOnce('jobs', fetchAllJobs),
+      fetchOnce('opportunities', fetchAllOpportunities),
     ]).then(([jr, or]) => {
       if (!cancelled) {
         if (jr.status === 'fulfilled') setAllJobs(jr.value.jobs || [])
