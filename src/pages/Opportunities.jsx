@@ -98,6 +98,7 @@ export default function Opportunities({ searchQuery }) {
         <select value={sortBy} onChange={e => setSortBy(e.target.value)}>
           <option value="deadline">Sort: Deadline</option>
           <option value="title">Sort: Title</option>
+          <option value="source">Sort: Source</option>
         </select>
 
         <label style={{fontSize:'0.75rem', color:'var(--fg-dim)', display:'flex', alignItems:'center', gap:'0.3rem', cursor:'pointer'}}>
@@ -125,7 +126,7 @@ export default function Opportunities({ searchQuery }) {
 
       {showDedup && dupCount > 0 && (
         <div className="jobs-dedup-info">
-          <strong>DEDUP:</strong> {dupCount} duplicate{dupCount !== 1 ? 's' : ''} removed &rarr; {totalAfter} unique
+          <strong>DEDUP:</strong> {dupCount} duplicate{dupCount !== 1 ? 's' : ''} removed ({totalAfter} unique)
         </div>
       )}
 

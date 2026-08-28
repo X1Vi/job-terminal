@@ -11,7 +11,7 @@ function formatSalary(min, max, currency) {
   return `${sym}up to ${fmt(max)}`
 }
 
-function safe(v, fallback = '') { return v ?? fallback }
+function safe(v, fb = '') { return v ?? fb }
 
 export default function Jobs({ searchQuery }) {
   const [allJobs, setAllJobs] = useState([])
@@ -20,6 +20,7 @@ export default function Jobs({ searchQuery }) {
   const [category, setCategory] = useState('all')
   const [remote, setRemote] = useState('all')
   const [keyword, setKeyword] = useState('')
+  const [sortBy, setSortBy] = useState('date')
   const [showDedup, setShowDedup] = useState(true)
   const [paginated, setPaginated] = useState(50)
 
@@ -66,8 +67,18 @@ export default function Jobs({ searchQuery }) {
         (j.location || '').toLowerCase().includes(k)
       )
     }
-    return jobs
-  }, [category, remote, keyword, searchQuery, showDedup, unique, allJobs])
+
+    return [...jobs].sort((a, b) => {
+      if (sortBy === 'date') {
+        const da = a.datePosted || '', db = b.datePosted || ''
+        return db.localeCompare(da)
+      }
+      if (sortBy === 'company') return (a.company || '').localeCompare(b.company || '')
+      if (sortBy === 'title') return (a.title || '').localeCompare(b.title || '')
+      if (sortBy === 'source') return (a.source || '').localeCompare(b.source || '')
+      return 0
+    })
+  }, [category, remote, keyword, sortBy, searchQuery, showDedup, unique, allJobs])
 
   const displayJobs = useMemo(() => filtered.slice(0, paginated), [filtered, paginated])
 
@@ -90,12 +101,19 @@ export default function Jobs({ searchQuery }) {
         </select>
 
         <input
-          type="text" placeholder="engineering, design, react..."
+          type="text" placeholder="keyword..."
           value={keyword} onChange={e => setKeyword(e.target.value)}
           style={{background:'var(--bg)', border:'1px solid var(--border)', borderRadius:'3px',
             color:'var(--fg)', padding:'0.3rem 0.45rem', fontFamily:'inherit', fontSize:'0.78rem',
-            outline:'none', minWidth:'140px'}}
+            outline:'none', minWidth:'120px'}}
         />
+
+        <select value={sortBy} onChange={e => setSortBy(e.target.value)}>
+          <option value="date">Sort: Newest</option>
+          <option value="company">Sort: Company</option>
+          <option value="title">Sort: Title</option>
+          <option value="source">Sort: Source</option>
+        </select>
 
         <label style={{fontSize:'0.75rem', color:'var(--fg-dim)', display:'flex', alignItems:'center', gap:'0.3rem', cursor:'pointer'}}>
           <input type="checkbox" checked={showDedup} onChange={e => setShowDedup(e.target.checked)}
@@ -110,7 +128,7 @@ export default function Jobs({ searchQuery }) {
 
       {loading && (
         <div style={{textAlign:'center', padding:'3rem 0', color:'var(--fg-dim)', fontSize:'0.85rem'}}>
-          <div>Fetching from RemoteOK, Remotive, Arbeitnow, Jobicy, HN...</div>
+          <div>Fetching jobs from RemoteOK, Remotive, Arbeitnow, Jobicy, HN...</div>
         </div>
       )}
 
@@ -122,7 +140,7 @@ export default function Jobs({ searchQuery }) {
 
       {showDedup && dupCount > 0 && (
         <div className="jobs-dedup-info">
-          <strong>DEDUP:</strong> {dupCount} duplicate{dupCount !== 1 ? 's' : ''} removed &rarr; {totalAfter} unique
+          <strong>DEDUP:</strong> {dupCount} duplicate{dupCount !== 1 ? 's' : ''} removed ({totalAfter} unique)
         </div>
       )}
 
