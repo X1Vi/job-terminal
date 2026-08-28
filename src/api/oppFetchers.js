@@ -5,24 +5,28 @@ function parseRSS(xml) {
   const itemRegex = /<item>[\s\S]*?<\/item>/gi
   let m
   while ((m = itemRegex.exec(xml)) !== null) {
+    const block = m[0]
     const get = (tag) => {
-      const r = m[0].match(new RegExp(`<${tag}[^>]*>([\\s\\S]*?)<\\/${tag}>`, 'i'))
+      const r = block.match(new RegExp(`<${tag}[^>]*>([\\s\\S]*?)<\\/${tag}>`, 'i'))
       return r ? r[1].trim().replace(/<!\[CDATA\[(.*?)\]\]>/g, '$1') : ''
     }
     const title = get('title')
     if (!title) continue
+
     const desc = get('description').replace(/<[^>]+>/g, '').slice(0, 500)
+    const link = get('link')
     const t = (title + ' ' + desc).toLowerCase()
     let type = 'other'
-    if (/scholarship/.test(t)) type = 'scholarship'
-    else if (/fellowship/.test(t)) type = 'fellowship'
+    if (/scholarship/i.test(t)) type = 'scholarship'
+    else if (/fellowship/i.test(t)) type = 'fellowship'
     else if (/grant/i.test(t)) type = 'grant'
-    else if (/internship/.test(t)) type = 'internship'
+    else if (/internship/i.test(t)) type = 'internship'
+
     const y = title.match(/\b(20\d{2})\b/)
     items.push({
-      title, description: desc,
-      opportunityType: type, deadline: y ? y[0] : 'Rolling',
-      url: get('link'), source: '', organization: '',
+      title, description: desc, opportunityType: type,
+      deadline: y ? y[0] : 'Rolling',
+      url: link, source: '', organization: '',
     })
   }
   return items
@@ -43,7 +47,7 @@ export async function fetchAllOpportunities() {
 
   for (const feed of RSS_FEEDS) {
     try {
-      const xml = await fetchText(feed.url)
+      const xml = await fetchText(feed.url, true)
       const items = parseRSS(xml)
       for (const item of items) {
         all.push({

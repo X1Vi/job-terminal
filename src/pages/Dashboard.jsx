@@ -83,28 +83,38 @@ export default function Dashboard({ searchQuery }) {
 
   useEffect(() => {
     let cancelled = false
-    Promise.all([
-      fetchAllJobs().then(r => r.jobs),
-      fetchAllOpportunities().then(r => r.opportunities),
-    ]).then(([jobs, opps]) => {
+    Promise.allSettled([
+      fetchAllJobs(),
+      fetchAllOpportunities(),
+    ]).then(([jr, or]) => {
       if (!cancelled) {
-        setAllJobs(jobs)
-        setAllOpps(opps)
+        if (jr.status === 'fulfilled') setAllJobs(jr.value.jobs || [])
+        if (or.status === 'fulfilled') setAllOpps(or.value.opportunities || [])
         setLoading(false)
       }
     })
     return () => { cancelled = true }
   }, [])
 
-  const { unique: jobs, totalBefore: jRaw, totalAfter: jUnique, dupCount: jDup } = useMemo(
-    () => deduplicateJobs(allJobs), [allJobs]
-  )
-  const { unique: opps, totalBefore: oRaw, totalAfter: oUnique, dupCount: oDup } = useMemo(
-    () => deduplicateOpportunities(allOpps), [allOpps]
-  )
+  const { unique: jobs, totalBefore: jRaw, totalAfter: jUnique, dupCount: jDup } = useMemo(() => {
+    try { return allJobs.length ? deduplicateJobs(allJobs) : { unique: [], duplicates: [], totalBefore: 0, totalAfter: 0, dupCount: 0 } }
+    catch { return { unique: allJobs, duplicates: [], totalBefore: allJobs.length, totalAfter: allJobs.length, dupCount: 0 } }
+  }, [allJobs])
 
-  const jStats = useMemo(() => calculateStats(jobs), [jobs])
-  const oStats = useMemo(() => calculateOppStats(opps), [opps])
+  const { unique: opps, totalBefore: oRaw, totalAfter: oUnique, dupCount: oDup } = useMemo(() => {
+    try { return allOpps.length ? deduplicateOpportunities(allOpps) : { unique: [], duplicates: [], totalBefore: 0, totalAfter: 0, dupCount: 0 } }
+    catch { return { unique: allOpps, duplicates: [], totalBefore: allOpps.length, totalAfter: allOpps.length, dupCount: 0 } }
+  }, [allOpps])
+
+  const jStats = useMemo(() => {
+    try { return jobs.length ? calculateStats(jobs) : { bySource: {}, byCategory: {}, byRemote: { remote: 0, onsite: 0, hybrid: 0, unknown: 0 }, byJobType: {}, byExperience: {}, byDate: {}, salaryData: [], matchScores: [] } }
+    catch { return { bySource: {}, byCategory: {}, byRemote: { remote: 0, onsite: 0, hybrid: 0, unknown: 0 }, byJobType: {}, byExperience: {}, byDate: {}, salaryData: [], matchScores: [] } }
+  }, [jobs])
+
+  const oStats = useMemo(() => {
+    try { return opps.length ? calculateOppStats(opps) : { byType: {}, byRegion: {}, byField: {}, bySource: {}, byDeadline: {} } }
+    catch { return { byType: {}, byRegion: {}, byField: {}, bySource: {}, byDeadline: {} } }
+  }, [opps])
 
   const jobSourceData = useMemo(() =>
     Object.entries(jStats.bySource).map(([n, v]) => ({name:n, value:v})).sort((a,b) => b.value - a.value), [jStats.bySource])

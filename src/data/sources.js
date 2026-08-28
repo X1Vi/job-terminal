@@ -4,7 +4,7 @@ const OPP_SOURCES = [
   { id: 'opportunitydesk_mixed', name: 'Opportunity Desk (All)', type: 'RSS', url: 'https://opportunitydesk.org/feed/', kind: 'mixed', free: true, live: true },
   { id: 'opportunitydesk_grants', name: 'Opportunity Desk (Grants)', type: 'RSS', url: 'https://opportunitydesk.org/category/grants/feed/', kind: 'grant', free: true },
   { id: 'opportunitydesk_internships', name: 'Opportunity Desk (Internships)', type: 'RSS', url: 'https://www.opportunitydesk.org/category/internships/feed/', kind: 'internship', free: true },
-  { id: 'afterschoolafrica', name: 'AfterSchool Africa', type: 'RSS', url: 'https://afterschoolafrica.com/feed/', kind: 'mixed', free: true, live: true },
+  { id: 'afterschoolafrica', name: 'AfterSchool Africa', type: 'RSS', url: 'https://afterschoolafrica.com/feed/', kind: 'mixed', free: true },
   { id: 'oppsforafricans', name: 'Opportunities for Africans', type: 'RSS', url: 'https://www.opportunitiesforafricans.com/feed/', kind: 'mixed', free: true },
   { id: 'oppsforyouth', name: 'Opportunities For Youth', type: 'RSS', url: 'https://opportunitiesforyouth.org/feed/', kind: 'mixed', free: true, live: true },
   { id: 'nsf_funding', name: 'NSF Funding', type: 'RSS', url: 'https://www.nsf.gov/rss/rss_www_funding_upcoming.xml', kind: 'grant', free: true, live: true },
