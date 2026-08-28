@@ -326,6 +326,20 @@
 .about-source-line .name { color: var(--fg); }
 .about-source-line .desc { color: var(--fg-dim); font-size: 0.76rem; }
 
+.live-tag {
+  display: inline-block;
+  margin-left: 0.4rem;
+  padding: 0.05rem 0.35rem;
+  font-size: 0.58rem;
+  line-height: 1.4;
+  color: #0a120a;
+  background: #4a9a4a;
+  border-radius: 2px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  vertical-align: 1px;
+}
+
 .about-feature {
   padding: 0.15rem 0;
   font-size: 0.82rem;

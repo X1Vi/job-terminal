@@ -6,8 +6,13 @@ Multi-source job & opportunity aggregator with a terminal-themed UI.
 
 ## Features
 
-- **32+ job sources** — RemoteOK, Greenhouse, Lever, Ashby, LinkedIn, Indeed, Adzuna, USAJobs, and more
-- **19+ opportunity sources** — Scholarships, fellowships, grants, internships (NSF, Fulbright, Rhodes, DAAD, Chevening, etc.)
+- **Live job sources** — fetched straight from the browser (no key, CORS-friendly APIs):
+  RemoteOK, Remotive, Arbeitnow, Jobicy, HN Who is Hiring
+- **Live opportunity sources** — parsed from RSS feeds via a CORS proxy fallback:
+  Scholars4Dev, Opportunity Desk, AfterSchool Africa, Opportunities For Youth, NSF Funding
+- **More sources listed, not yet live** — Greenhouse, Lever, Ashby, LinkedIn, Indeed,
+  Adzuna, USAJobs, etc. are documented in the About page but need API keys, scrapers,
+  or a backend and are not currently wired in
 - **Dedup engine** — Multi-level client-side deduplication (org+title fingerprint + Jaccard description similarity)
 - **Dashboard** — Stats + charts for jobs and opportunities with relevancy sorting
 - **Clickable charts** — Expand any chart into a full-size overlay

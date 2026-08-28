@@ -3,7 +3,9 @@ import { SOURCES, THEMES, SOURCE_CATEGORIES, OPP_SOURCES, OPP_TYPES, OPP_FIELDS,
 export default function About() {
   const freeCount = SOURCES.filter(s => s.free).length
   const keyedCount = SOURCES.filter(s => !s.free).length
+  const liveCount = SOURCES.filter(s => s.live).length
   const oppFreeCount = OPP_SOURCES.filter(s => s.free).length
+  const oppLiveCount = OPP_SOURCES.filter(s => s.live).length
 
   return (
     <div className="about-container">
@@ -16,7 +18,10 @@ export default function About() {
             <div className="about-section-title">[ JOB SOURCES ]</div>
             {SOURCES.map(s => (
               <div className="about-source-line" key={s.id}>
-                <span className="name">{s.name}</span>
+                <span className="name">
+                  {s.name}
+                  {s.live && <span className="live-tag">LIVE</span>}
+                </span>
                 <span className="desc">
                   {s.free ? 'Free' : s.key || 'API Key'} — {s.type} — {s.category}
                   {s.companies ? ` (${s.companies}+ companies)` : ''}
@@ -24,7 +29,7 @@ export default function About() {
               </div>
             ))}
             <div style={{marginTop:'0.5rem', fontSize:'0.75rem', color:'var(--fg-dim)'}}>
-              {freeCount} free · {keyedCount} keyed · {SOURCES.length} total job sources
+              {liveCount} live · {freeCount} free · {keyedCount} keyed · {SOURCES.length} total job sources
             </div>
           </div>
 
@@ -32,14 +37,17 @@ export default function About() {
             <div className="about-section-title">[ OPPORTUNITY SOURCES ]</div>
             {OPP_SOURCES.map(s => (
               <div className="about-source-line" key={s.id}>
-                <span className="name">{s.name}</span>
+                <span className="name">
+                  {s.name}
+                  {s.live && <span className="live-tag">LIVE</span>}
+                </span>
                 <span className="desc">
                   Free — {s.type} — {s.kind}
                 </span>
               </div>
             ))}
             <div style={{marginTop:'0.5rem', fontSize:'0.75rem', color:'var(--fg-dim)'}}>
-              {oppFreeCount} free sources · {OPP_TYPES.length - 1} opportunity types
+              {oppLiveCount} live · {oppFreeCount} free sources · {OPP_TYPES.length - 1} opportunity types
             </div>
           </div>
 
@@ -66,8 +74,9 @@ export default function About() {
 
           <div className="about-section">
             <div className="about-section-title">[ FEATURES ]</div>
-            <div className="about-feature">Multi-source job aggregation (32+ job boards & ATS)</div>
-            <div className="about-feature">Scholarship, fellowship, grant & internship aggregator (19+ sources)</div>
+            <div className="about-feature">Live job aggregation from CORS-friendly APIs (RemoteOK, Remotive, Arbeitnow, Jobicy, HN Who is Hiring)</div>
+            <div className="about-feature">Live scholarship, fellowship & grant RSS feeds (Scholars4Dev, OpportunityDesk, AfterSchool Africa, Opportunities For Youth, NSF Funding)</div>
+            <div className="about-feature">More sources planned (Greenhouse, Lever, Ashby, LinkedIn, Indeed, Adzuna, USAJobs...)</div>
             <div className="about-feature">Client-side deduplication engine (title + org fingerprint + Jaccard similarity)</div>
             <div className="about-feature">Real-time search & filtering by type, region, field, remote, experience</div>
             <div className="about-feature">Stats dashboard with relevancy & distribution charts</div>
