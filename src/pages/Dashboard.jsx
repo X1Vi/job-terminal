@@ -1,52 +1,13 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useState, useEffect } from 'react'
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell
 } from 'recharts'
 import { deduplicateJobs, calculateStats, deduplicateOpportunities, calculateOppStats } from '../engine/dedup'
+import { fetchAllJobs } from '../api/jobFetchers'
+import { fetchAllOpportunities } from '../api/oppFetchers'
 
 const CHART_COLORS = ['#78b878', '#c8944a', '#5aa8b8', '#b85050', '#8a7ab8', '#b8a060', '#5ab8a0', '#c87878']
-
-const SAMPLE_JOBS = [
-  { title: 'Senior Frontend Engineer', company: 'Stripe', location: 'Remote', source: 'Greenhouse', category: 'ATS Boards', remote: 'Remote', jobType: 'Full-time', experienceLevel: 'Senior', salaryMin: 150000, salaryMax: 220000, salaryCurrency: 'USD', datePosted: '2026-08-20', description: 'Build and maintain Stripe\'s frontend infrastructure. React, TypeScript, and WebGL experience required.' },
-  { title: 'Senior Frontend Engineer', company: 'Stripe', location: 'Remote', source: 'LinkedIn', category: 'General', remote: 'Remote', jobType: 'Full-time', experienceLevel: 'Senior', salaryMin: 145000, salaryMax: 225000, salaryCurrency: 'USD', datePosted: '2026-08-19', description: 'Build Stripe\'s frontend infrastructure. React, TypeScript experience required.' },
-  { title: 'Staff Software Engineer', company: 'Netflix', location: 'Los Gatos, CA', source: 'Lever', category: 'ATS Boards', remote: 'On-site', jobType: 'Full-time', experienceLevel: 'Senior', salaryMin: 250000, salaryMax: 500000, salaryCurrency: 'USD', datePosted: '2026-08-18', description: 'Lead engineering teams building streaming infrastructure.' },
-  { title: 'Backend Developer', company: 'GitLab', location: 'Remote', source: 'Greenhouse', category: 'ATS Boards', remote: 'Remote', jobType: 'Full-time', experienceLevel: 'Mid', salaryMin: 100000, salaryMax: 170000, salaryCurrency: 'USD', datePosted: '2026-08-17', description: 'Ruby on Rails backend development for GitLab platform.' },
-  { title: 'Backend Developer', company: 'GitLab', location: 'Remote', source: 'RemoteOK', category: 'Remote Jobs', remote: 'Remote', jobType: 'Full-time', experienceLevel: 'Mid', salaryMin: 100000, salaryMax: 170000, salaryCurrency: 'USD', datePosted: '2026-08-16', description: 'Ruby on Rails backend development for GitLab platform.' },
-  { title: 'Machine Learning Engineer', company: 'Anthropic', location: 'San Francisco, CA', source: 'Ashby', category: 'ATS Boards', remote: 'Hybrid', jobType: 'Full-time', experienceLevel: 'Senior', salaryMin: 200000, salaryMax: 350000, salaryCurrency: 'USD', datePosted: '2026-08-15', description: 'Build and train large language models. PyTorch, distributed systems.' },
-  { title: 'Product Designer', company: 'Linear', location: 'Remote', source: 'Ashby', category: 'ATS Boards', remote: 'Remote', jobType: 'Full-time', experienceLevel: 'Mid', salaryMin: 120000, salaryMax: 180000, salaryCurrency: 'USD', datePosted: '2026-08-14', description: 'Design intuitive interfaces for project management tools.' },
-  { title: 'DevOps Engineer', company: 'Databricks', location: 'San Francisco, CA', source: 'Greenhouse', category: 'ATS Boards', remote: 'Hybrid', jobType: 'Full-time', experienceLevel: 'Mid', salaryMin: 140000, salaryMax: 200000, salaryCurrency: 'USD', datePosted: '2026-08-13', description: 'Cloud infrastructure and Kubernetes orchestration.' },
-  { title: 'Frontend Developer', company: 'Vercel', location: 'Remote', source: 'Greenhouse', category: 'ATS Boards', remote: 'Remote', jobType: 'Full-time', experienceLevel: 'Mid', salaryMin: 130000, salaryMax: 190000, salaryCurrency: 'USD', datePosted: '2026-08-12', description: 'Build Vercel\'s frontend platform. Next.js, React.' },
-  { title: 'Data Scientist', company: 'OpenAI', location: 'San Francisco, CA', source: 'Lever', category: 'ATS Boards', remote: 'On-site', jobType: 'Full-time', experienceLevel: 'Senior', salaryMin: 200000, salaryMax: 350000, salaryCurrency: 'USD', datePosted: '2026-08-11', description: 'Research and develop new AI capabilities.' },
-  { title: 'Data Scientist', company: 'OpenAI', location: 'San Francisco, CA', source: 'LinkedIn', category: 'General', remote: 'On-site', jobType: 'Full-time', experienceLevel: 'Senior', salaryMin: 210000, salaryMax: 360000, salaryCurrency: 'USD', datePosted: '2026-08-10', description: 'AI research and development. Deep learning, NLP.' },
-  { title: 'Junior Developer', company: 'Spotify', location: 'Stockholm, Sweden', source: 'Arbeitnow', category: 'Remote Jobs', remote: 'Hybrid', jobType: 'Full-time', experienceLevel: 'Entry', salaryMin: 50000, salaryMax: 80000, salaryCurrency: 'EUR', datePosted: '2026-08-09', description: 'Join Spotify\'s music recommendation team.' },
-  { title: 'React Developer', company: 'Upwork', location: 'Remote', source: 'Remotive', category: 'Remote Jobs', remote: 'Remote', jobType: 'Contract', experienceLevel: 'Mid', salaryMin: 80000, salaryMax: 120000, salaryCurrency: 'USD', datePosted: '2026-08-08', description: 'Freelance React development for various clients.' },
-  { title: 'Engineering Manager', company: 'Atlassian', location: 'Sydney, Australia', source: 'Lever', category: 'ATS Boards', remote: 'Hybrid', jobType: 'Full-time', experienceLevel: 'Lead', salaryMin: 180000, salaryMax: 260000, salaryCurrency: 'USD', datePosted: '2026-08-07', description: 'Lead distributed engineering teams building cloud products.' },
-  { title: 'Engineering Manager', company: 'Atlassian', location: 'Remote', source: 'JobsCollider', category: 'Tech Jobs', remote: 'Remote', jobType: 'Full-time', experienceLevel: 'Lead', salaryMin: 170000, salaryMax: 250000, salaryCurrency: 'USD', datePosted: '2026-08-06', description: 'Lead engineering teams building cloud products.' },
-  { title: 'iOS Developer', company: 'Airbnb', location: 'San Francisco, CA', source: 'Greenhouse', category: 'ATS Boards', remote: 'Hybrid', jobType: 'Full-time', experienceLevel: 'Mid', salaryMin: 130000, salaryMax: 190000, salaryCurrency: 'USD', datePosted: '2026-08-05', description: 'Swift and SwiftUI development for Airbnb iOS app.' },
-  { title: 'Security Engineer', company: 'Cloudflare', location: 'Austin, TX', source: 'Greenhouse', category: 'ATS Boards', remote: 'Remote', jobType: 'Full-time', experienceLevel: 'Senior', salaryMin: 160000, salaryMax: 240000, salaryCurrency: 'USD', datePosted: '2026-08-04', description: 'Cloud security and DDoS mitigation infrastructure.' },
-  { title: 'UX Researcher', company: 'Notion', location: 'New York, NY', source: 'Lever', category: 'ATS Boards', remote: 'Hybrid', jobType: 'Full-time', experienceLevel: 'Mid', salaryMin: 110000, salaryMax: 160000, salaryCurrency: 'USD', datePosted: '2026-08-03', description: 'User research for productivity software.' },
-  { title: 'Technical Writer', company: 'Postman', location: 'Remote', source: 'RemoteOK', category: 'Remote Jobs', remote: 'Remote', jobType: 'Full-time', experienceLevel: 'Mid', salaryMin: 90000, salaryMax: 130000, salaryCurrency: 'USD', datePosted: '2026-08-02', description: 'API documentation and developer guides.' },
-  { title: 'Site Reliability Engineer', company: 'SpaceX', location: 'Hawthorne, CA', source: 'Greenhouse', category: 'ATS Boards', remote: 'On-site', jobType: 'Full-time', experienceLevel: 'Senior', salaryMin: 140000, salaryMax: 200000, salaryCurrency: 'USD', datePosted: '2026-08-01', description: 'Launch vehicle software reliability and infrastructure.' },
-]
-
-const SAMPLE_OPPS = [
-  { title: 'NSF Graduate Research Fellowship Program', organization: 'National Science Foundation', opportunityType: 'fellowship', region: 'US', field: 'STEM', deadline: 'October (annually)', amount: '$37,000/yr stipend', source: 'NSF GRFP', description: 'Fellowship for graduate students in STEM pursuing research-based degrees.' },
-  { title: 'Fulbright Foreign Student Program', organization: 'U.S. Department of State', opportunityType: 'scholarship', region: 'Worldwide', field: 'All Fields', deadline: 'Varies by country', amount: 'Full tuition + stipend', source: 'Fulbright', description: 'Graduate study and research in the United States.' },
-  { title: 'Rhodes Scholarship', organization: 'Rhodes Trust', opportunityType: 'scholarship', region: 'Worldwide', field: 'All Fields', deadline: 'October annually', amount: 'Full tuition + stipend', source: 'Rhodes', description: 'Postgraduate study at the University of Oxford.' },
-  { title: 'Gates Cambridge Scholarship', organization: 'Gates Cambridge Trust', opportunityType: 'scholarship', region: 'Worldwide', field: 'All Fields', deadline: 'October annually', amount: 'Full tuition + stipend', source: 'Gates Cambridge', description: 'Postgraduate study at the University of Cambridge.' },
-  { title: 'Marshall Scholarship', organization: 'Marshall Commission', opportunityType: 'scholarship', region: 'US', field: 'All Fields', deadline: 'September annually', amount: 'Full tuition + living costs', source: 'Marshall', description: 'American students studying at UK universities.' },
-  { title: 'Chevening Scholarships', organization: 'UK Foreign Office', opportunityType: 'scholarship', region: 'Worldwide', field: 'All Fields', deadline: 'November annually', amount: 'Full tuition + living costs', source: 'Chevening', description: 'UK Government global scholarship for future leaders.' },
-  { title: 'DAAD Scholarship', organization: 'DAAD', opportunityType: 'scholarship', region: 'Worldwide', field: 'All Fields', deadline: 'Varies by program', amount: '€934/month', source: 'DAAD', description: 'Study in Germany at all academic levels.' },
-  { title: 'NSF CAREER Award', organization: 'National Science Foundation', opportunityType: 'grant', region: 'US', field: 'STEM', deadline: 'July annually', amount: '$400k-500k', source: 'NSF', description: 'Early-career faculty development award.' },
-  { title: 'Grants.gov Opportunities', organization: 'US Federal Government', opportunityType: 'grant', region: 'US', field: 'All Fields', deadline: 'Varies', amount: 'Varies', source: 'Grants.gov', description: 'Federal grants across all agencies.' },
-  { title: 'NSF GRFP', organization: 'National Science Foundation', opportunityType: 'fellowship', region: 'US', field: 'STEM', deadline: 'October annually', amount: '$37,000/yr stipend', source: 'Scholars4Dev', description: 'Graduate Research Fellowship Program for STEM graduate students.' },
-  { title: 'Erik Blei Memorial Grant', organization: 'Signal Foundation', opportunityType: 'grant', region: 'Worldwide', field: 'Open Source & Privacy', deadline: 'Rolling', amount: '$5k-10k', source: 'Signal', description: 'Grant for open source privacy and security tools.' },
-  { title: 'Mozilla Open Source Grant', organization: 'Mozilla Foundation', opportunityType: 'grant', region: 'Worldwide', field: 'Open Source', deadline: 'Rolling', amount: 'Up to $10k', source: 'Mozilla', description: 'Funding for a healthy internet ecosystem.' },
-  { title: 'World Bank Internship', organization: 'World Bank', opportunityType: 'internship', region: 'Worldwide', field: 'International Development', deadline: 'Jan/June biannual', amount: 'Paid', source: 'ReliefWeb', description: 'Paid internship at World Bank headquarters.' },
-  { title: 'UNICEF Internship', organization: 'UNICEF', opportunityType: 'internship', region: 'Worldwide', field: 'International Development', deadline: 'Rolling', amount: 'Stipend', source: 'OFY', description: 'Internships at UNICEF offices worldwide.' },
-  { title: 'Opportunities for Africans Fellowship', organization: 'Various', opportunityType: 'fellowship', region: 'Africa', field: 'All Fields', deadline: 'Varies', amount: 'Varies', source: 'OFA', description: 'Fellowships for African students and professionals.' },
-]
 
 function ChartOverlay({ title, children, onClose }) {
   return (
@@ -115,13 +76,31 @@ function SectionHeader({ label }) {
 }
 
 export default function Dashboard({ searchQuery }) {
+  const [allJobs, setAllJobs] = useState([])
+  const [allOpps, setAllOpps] = useState([])
+  const [loading, setLoading] = useState(true)
   const [expandedChart, setExpandedChart] = useState(null)
 
+  useEffect(() => {
+    let cancelled = false
+    Promise.all([
+      fetchAllJobs().then(r => r.jobs),
+      fetchAllOpportunities().then(r => r.opportunities),
+    ]).then(([jobs, opps]) => {
+      if (!cancelled) {
+        setAllJobs(jobs)
+        setAllOpps(opps)
+        setLoading(false)
+      }
+    })
+    return () => { cancelled = true }
+  }, [])
+
   const { unique: jobs, totalBefore: jRaw, totalAfter: jUnique, dupCount: jDup } = useMemo(
-    () => deduplicateJobs(SAMPLE_JOBS), []
+    () => deduplicateJobs(allJobs), [allJobs]
   )
   const { unique: opps, totalBefore: oRaw, totalAfter: oUnique, dupCount: oDup } = useMemo(
-    () => deduplicateOpportunities(SAMPLE_OPPS), []
+    () => deduplicateOpportunities(allOpps), [allOpps]
   )
 
   const jStats = useMemo(() => calculateStats(jobs), [jobs])
@@ -169,6 +148,15 @@ export default function Dashboard({ searchQuery }) {
   const oppSourceData = useMemo(() =>
     Object.entries(oStats.bySource).map(([n,v]) => ({name:n, value:v})).sort((a,b) => b.value - a.value).slice(0, 6), [oStats.bySource])
 
+  if (loading) {
+    return (
+      <div style={{textAlign:'center', padding:'4rem 0', color:'var(--fg-dim)', fontSize:'0.9rem'}}>
+        <div style={{marginBottom:'0.5rem'}}>Fetching live data from APIs & RSS feeds...</div>
+        <div style={{fontSize:'0.7rem', opacity:0.5}}>This may take a moment through CORS proxy</div>
+      </div>
+    )
+  }
+
   return (
     <div>
       <div className="stats-grid">
@@ -182,19 +170,19 @@ export default function Dashboard({ searchQuery }) {
         </div>
         <div className="stat-card">
           <div className="stat-value">{jDup}</div>
-          <div className="stat-label">Job Dupes Removed</div>
+          <div className="stat-label">Job Dupes</div>
         </div>
         <div className="stat-card">
           <div className="stat-value">{oRaw}</div>
-          <div className="stat-label">Raw Opportunities</div>
+          <div className="stat-label">Raw Opps</div>
         </div>
         <div className="stat-card">
           <div className="stat-value">{oUnique}</div>
-          <div className="stat-label">Unique Opportunities</div>
+          <div className="stat-label">Unique Opps</div>
         </div>
         <div className="stat-card">
           <div className="stat-value">{oDup}</div>
-          <div className="stat-label">Opp Dupes Removed</div>
+          <div className="stat-label">Opp Dupes</div>
         </div>
       </div>
 

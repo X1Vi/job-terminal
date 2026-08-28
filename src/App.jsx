@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route } from 'react-router-dom'
+import { HashRouter, Routes, Route } from 'react-router-dom'
 import { useState, useMemo } from 'react'
 import TerminalLayout from './components/TerminalLayout'
 import Dashboard from './pages/Dashboard'
@@ -15,7 +15,7 @@ export default function App() {
   const themeClass = useMemo(() => THEMES.find(t => t.id === theme)?.id || 'matrix', [theme])
 
   return (
-    <BrowserRouter>
+    <HashRouter>
       <div className={`app theme-${themeClass}`}>
         <Routes>
           <Route path="/" element={
@@ -44,6 +44,6 @@ export default function App() {
           } />
         </Routes>
       </div>
-    </BrowserRouter>
+    </HashRouter>
   )
 }

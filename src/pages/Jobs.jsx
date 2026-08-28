@@ -1,29 +1,6 @@
-import { useMemo, useState } from 'react'
-import { SOURCES } from '../data/sources'
+import { useMemo, useState, useEffect, useCallback } from 'react'
 import { deduplicateJobs } from '../engine/dedup'
-
-const SAMPLE_JOBS = [
-  { title: 'Senior Frontend Engineer', company: 'Stripe', location: 'Remote', source: 'Greenhouse', category: 'ATS Boards', remote: 'Remote', jobType: 'Full-time', experienceLevel: 'Senior', salaryMin: 150000, salaryMax: 220000, salaryCurrency: 'USD', datePosted: '2026-08-20', description: 'Build and maintain Stripe\'s frontend infrastructure. React, TypeScript, and WebGL experience required.', url: '#' },
-  { title: 'Senior Frontend Engineer', company: 'Stripe', location: 'Remote', source: 'LinkedIn', category: 'General', remote: 'Remote', jobType: 'Full-time', experienceLevel: 'Senior', salaryMin: 145000, salaryMax: 225000, salaryCurrency: 'USD', datePosted: '2026-08-19', description: 'Build Stripe\'s frontend infrastructure. React, TypeScript experience required.', url: '#' },
-  { title: 'Staff Software Engineer', company: 'Netflix', location: 'Los Gatos, CA', source: 'Lever', category: 'ATS Boards', remote: 'On-site', jobType: 'Full-time', experienceLevel: 'Senior', salaryMin: 250000, salaryMax: 500000, salaryCurrency: 'USD', datePosted: '2026-08-18', description: 'Lead engineering teams building streaming infrastructure.', url: '#' },
-  { title: 'Backend Developer', company: 'GitLab', location: 'Remote', source: 'Greenhouse', category: 'ATS Boards', remote: 'Remote', jobType: 'Full-time', experienceLevel: 'Mid', salaryMin: 100000, salaryMax: 170000, salaryCurrency: 'USD', datePosted: '2026-08-17', description: 'Ruby on Rails backend development for GitLab platform.', url: '#' },
-  { title: 'Backend Developer', company: 'GitLab', location: 'Remote', source: 'RemoteOK', category: 'Remote Jobs', remote: 'Remote', jobType: 'Full-time', experienceLevel: 'Mid', salaryMin: 100000, salaryMax: 170000, salaryCurrency: 'USD', datePosted: '2026-08-16', description: 'Ruby on Rails backend development for GitLab platform.', url: '#' },
-  { title: 'Machine Learning Engineer', company: 'Anthropic', location: 'San Francisco, CA', source: 'Ashby', category: 'ATS Boards', remote: 'Hybrid', jobType: 'Full-time', experienceLevel: 'Senior', salaryMin: 200000, salaryMax: 350000, salaryCurrency: 'USD', datePosted: '2026-08-15', description: 'Build and train large language models. PyTorch, distributed systems.', url: '#' },
-  { title: 'Product Designer', company: 'Linear', location: 'Remote', source: 'Ashby', category: 'ATS Boards', remote: 'Remote', jobType: 'Full-time', experienceLevel: 'Mid', salaryMin: 120000, salaryMax: 180000, salaryCurrency: 'USD', datePosted: '2026-08-14', description: 'Design intuitive interfaces for project management tools.', url: '#' },
-  { title: 'DevOps Engineer', company: 'Databricks', location: 'San Francisco, CA', source: 'Greenhouse', category: 'ATS Boards', remote: 'Hybrid', jobType: 'Full-time', experienceLevel: 'Mid', salaryMin: 140000, salaryMax: 200000, salaryCurrency: 'USD', datePosted: '2026-08-13', description: 'Cloud infrastructure and Kubernetes orchestration.', url: '#' },
-  { title: 'Frontend Developer', company: 'Vercel', location: 'Remote', source: 'Greenhouse', category: 'ATS Boards', remote: 'Remote', jobType: 'Full-time', experienceLevel: 'Mid', salaryMin: 130000, salaryMax: 190000, salaryCurrency: 'USD', datePosted: '2026-08-12', description: 'Build Vercel\'s frontend platform. Next.js, React.', url: '#' },
-  { title: 'Data Scientist', company: 'OpenAI', location: 'San Francisco, CA', source: 'Lever', category: 'ATS Boards', remote: 'On-site', jobType: 'Full-time', experienceLevel: 'Senior', salaryMin: 200000, salaryMax: 350000, salaryCurrency: 'USD', datePosted: '2026-08-11', description: 'Research and develop new AI capabilities.', url: '#' },
-  { title: 'Data Scientist', company: 'OpenAI', location: 'San Francisco, CA', source: 'LinkedIn', category: 'General', remote: 'On-site', jobType: 'Full-time', experienceLevel: 'Senior', salaryMin: 210000, salaryMax: 360000, salaryCurrency: 'USD', datePosted: '2026-08-10', description: 'AI research and development. Deep learning, NLP.', url: '#' },
-  { title: 'Junior Developer', company: 'Spotify', location: 'Stockholm, Sweden', source: 'Arbeitnow', category: 'Remote Jobs', remote: 'Hybrid', jobType: 'Full-time', experienceLevel: 'Entry', salaryMin: 50000, salaryMax: 80000, salaryCurrency: 'EUR', datePosted: '2026-08-09', description: 'Join Spotify\'s music recommendation team.', url: '#' },
-  { title: 'React Developer', company: 'Upwork', location: 'Remote', source: 'Remotive', category: 'Remote Jobs', remote: 'Remote', jobType: 'Contract', experienceLevel: 'Mid', salaryMin: 80000, salaryMax: 120000, salaryCurrency: 'USD', datePosted: '2026-08-08', description: 'Freelance React development for various clients.', url: '#' },
-  { title: 'Engineering Manager', company: 'Atlassian', location: 'Sydney, Australia', source: 'Lever', category: 'ATS Boards', remote: 'Hybrid', jobType: 'Full-time', experienceLevel: 'Lead', salaryMin: 180000, salaryMax: 260000, salaryCurrency: 'USD', datePosted: '2026-08-07', description: 'Lead distributed engineering teams building cloud products.', url: '#' },
-  { title: 'Engineering Manager', company: 'Atlassian', location: 'Remote', source: 'JobsCollider', category: 'Tech Jobs', remote: 'Remote', jobType: 'Full-time', experienceLevel: 'Lead', salaryMin: 170000, salaryMax: 250000, salaryCurrency: 'USD', datePosted: '2026-08-06', description: 'Lead engineering teams building cloud products.', url: '#' },
-  { title: 'iOS Developer', company: 'Airbnb', location: 'San Francisco, CA', source: 'Greenhouse', category: 'ATS Boards', remote: 'Hybrid', jobType: 'Full-time', experienceLevel: 'Mid', salaryMin: 130000, salaryMax: 190000, salaryCurrency: 'USD', datePosted: '2026-08-05', description: 'Swift and SwiftUI development for Airbnb iOS app.', url: '#' },
-  { title: 'Security Engineer', company: 'Cloudflare', location: 'Austin, TX', source: 'Greenhouse', category: 'ATS Boards', remote: 'Remote', jobType: 'Full-time', experienceLevel: 'Senior', salaryMin: 160000, salaryMax: 240000, salaryCurrency: 'USD', datePosted: '2026-08-04', description: 'Cloud security and DDoS mitigation infrastructure.', url: '#' },
-  { title: 'UX Researcher', company: 'Notion', location: 'New York, NY', source: 'Lever', category: 'ATS Boards', remote: 'Hybrid', jobType: 'Full-time', experienceLevel: 'Mid', salaryMin: 110000, salaryMax: 160000, salaryCurrency: 'USD', datePosted: '2026-08-03', description: 'User research for productivity software.', url: '#' },
-  { title: 'Technical Writer', company: 'Postman', location: 'Remote', source: 'RemoteOK', category: 'Remote Jobs', remote: 'Remote', jobType: 'Full-time', experienceLevel: 'Mid', salaryMin: 90000, salaryMax: 130000, salaryCurrency: 'USD', datePosted: '2026-08-02', description: 'API documentation and developer guides.', url: '#' },
-  { title: 'Site Reliability Engineer', company: 'SpaceX', location: 'Hawthorne, CA', source: 'Greenhouse', category: 'ATS Boards', remote: 'On-site', jobType: 'Full-time', experienceLevel: 'Senior', salaryMin: 140000, salaryMax: 200000, salaryCurrency: 'USD', datePosted: '2026-08-01', description: 'Launch vehicle software reliability and infrastructure.', url: '#' },
-]
+import { fetchAllJobs } from '../api/jobFetchers'
 
 function formatSalary(min, max, currency) {
   if (!min && !max) return ''
@@ -38,41 +15,59 @@ function formatSalary(min, max, currency) {
 }
 
 export default function Jobs({ searchQuery }) {
+  const [allJobs, setAllJobs] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [fetchErrors, setFetchErrors] = useState([])
   const [category, setCategory] = useState('all')
   const [remote, setRemote] = useState('all')
   const [jobType, setJobType] = useState('all')
   const [expLevel, setExpLevel] = useState('all')
-  const [showDedupInfo, setShowDedupInfo] = useState(true)
+  const [showDedup, setShowDedup] = useState(true)
+  const [paginated, setPaginated] = useState(50)
+
+  useEffect(() => {
+    let cancelled = false
+    setLoading(true)
+    fetchAllJobs().then(({ jobs, errors }) => {
+      if (!cancelled) {
+        setAllJobs(jobs)
+        setFetchErrors(errors)
+        setLoading(false)
+      }
+    })
+    return () => { cancelled = true }
+  }, [])
+
+  const loadMore = useCallback(() => setPaginated(p => p + 50), [])
 
   const { unique, duplicates, totalBefore, totalAfter, dupCount } = useMemo(
-    () => deduplicateJobs(SAMPLE_JOBS), []
+    () => showDedup ? deduplicateJobs(allJobs) : { unique: allJobs, duplicates: [], totalBefore: allJobs.length, totalAfter: allJobs.length, dupCount: 0 },
+    [allJobs, showDedup]
   )
 
-  const filtered = useMemo(() => {
-    let jobs = showDedupInfo ? unique : SAMPLE_JOBS
+  const sourceList = useMemo(() => {
+    const s = new Set(allJobs.map(j => j.source))
+    return ['all', ...s]
+  }, [allJobs])
 
-    if (category !== 'all') {
-      jobs = jobs.filter(j => j.category === category)
-    }
-    if (remote !== 'all') {
-      jobs = jobs.filter(j => j.remote.toLowerCase() === remote)
-    }
-    if (jobType !== 'all') {
-      jobs = jobs.filter(j => j.jobType === jobType)
-    }
-    if (expLevel !== 'all') {
-      jobs = jobs.filter(j => j.experienceLevel === expLevel)
-    }
+  const filtered = useMemo(() => {
+    let jobs = showDedup ? unique : allJobs
+    if (category !== 'all') jobs = jobs.filter(j => j.category === category)
+    if (remote !== 'all') jobs = jobs.filter(j => j.remote?.toLowerCase() === remote)
+    if (jobType !== 'all') jobs = jobs.filter(j => j.jobType === jobType)
+    if (expLevel !== 'all') jobs = jobs.filter(j => j.experienceLevel === expLevel)
     if (searchQuery) {
       const q = searchQuery.toLowerCase()
       jobs = jobs.filter(j =>
-        j.title.toLowerCase().includes(q) ||
-        j.company.toLowerCase().includes(q) ||
+        j.title?.toLowerCase().includes(q) ||
+        j.company?.toLowerCase().includes(q) ||
         j.description?.toLowerCase().includes(q)
       )
     }
     return jobs
-  }, [category, remote, jobType, expLevel, searchQuery, showDedupInfo, unique])
+  }, [category, remote, jobType, expLevel, searchQuery, showDedup, unique, allJobs])
+
+  const displayJobs = useMemo(() => filtered.slice(0, paginated), [filtered, paginated])
 
   return (
     <div>
@@ -82,7 +77,6 @@ export default function Jobs({ searchQuery }) {
           <option value="ATS Boards">ATS Boards</option>
           <option value="Remote Jobs">Remote Jobs</option>
           <option value="Tech Jobs">Tech Jobs</option>
-          <option value="General">General</option>
         </select>
 
         <select value={remote} onChange={e => setRemote(e.target.value)}>
@@ -109,27 +103,38 @@ export default function Jobs({ searchQuery }) {
         </select>
 
         <label style={{fontSize:'0.75rem', color:'var(--fg-dim)', display:'flex', alignItems:'center', gap:'0.3rem', cursor:'pointer'}}>
-          <input type="checkbox" checked={showDedupInfo} onChange={e => setShowDedupInfo(e.target.checked)}
+          <input type="checkbox" checked={showDedup} onChange={e => setShowDedup(e.target.checked)}
             style={{accentColor:'var(--fg)'}} />
           Dedup
         </label>
 
-        <div className="jobs-count">{filtered.length} of {showDedupInfo ? totalAfter : totalBefore} jobs</div>
+        <div className="jobs-count">
+          {loading ? 'fetching...' : `${displayJobs.length} of ${showDedup ? totalAfter : allJobs.length}`}
+        </div>
       </div>
 
-      {showDedupInfo && dupCount > 0 && (
-        <div className="jobs-dedup-info">
-          <strong>DEDUP ENGINE:</strong> {dupCount} duplicate{dupCount > 1 ? 's' : ''} removed from {totalBefore} raw jobs &rarr; {totalAfter} unique
-          {dupCount > 0 && (
-            <span style={{marginLeft:'0.5rem', fontSize:'0.65rem', opacity:0.5}}>
-              (using title+company fingerprint + Jaccard description similarity)
-            </span>
-          )}
+      {loading && (
+        <div style={{textAlign:'center', padding:'3rem 0', color:'var(--fg-dim)', fontSize:'0.85rem'}}>
+          <div style={{marginBottom:'0.5rem'}}>Fetching live job data from RemoteOK, Remotive, Arbeitnow, Jobicy, HN...</div>
+          <div style={{fontSize:'0.7rem', opacity:0.5}}>Some sources may take a moment through CORS proxy</div>
         </div>
       )}
 
-      {filtered.map((job, i) => (
-        <a href={job.url} key={i} target="_blank" rel="noopener noreferrer" style={{display:'block', textDecoration:'none', color:'inherit'}}>
+      {!loading && fetchErrors.length > 0 && (
+        <div className="jobs-dedup-info" style={{borderStyle:'solid', borderColor:'#b85050'}}>
+          <strong>WARN:</strong> {fetchErrors.length} source(s) failed to respond. Try refreshing.
+        </div>
+      )}
+
+      {showDedup && dupCount > 0 && (
+        <div className="jobs-dedup-info">
+          <strong>DEDUP:</strong> {dupCount} duplicate{dupCount > 1 ? 's' : ''} removed &rarr; {totalAfter} unique
+        </div>
+      )}
+
+      {displayJobs.map((job, i) => (
+        <a href={job.url} key={`${job.source}-${i}`} target="_blank" rel="noopener noreferrer"
+          style={{display:'block', textDecoration:'none', color:'inherit'}}>
           <div className="card">
             <div className="card-title">{job.title}</div>
             <div className="card-meta">
@@ -139,10 +144,10 @@ export default function Jobs({ searchQuery }) {
             </div>
             <div className="card-meta" style={{marginTop:'0.3rem'}}>
               <span className={`card-tag ${job.remote === 'Remote' ? 'green' : job.remote === 'Hybrid' ? 'amber' : 'blue'}`}>
-                {job.remote}
+                {job.remote || 'Remote'}
               </span>
-              <span className="card-tag">{job.jobType}</span>
-              <span className="card-tag">{job.experienceLevel}</span>
+              <span className="card-tag">{job.jobType || 'Full-time'}</span>
+              <span className="card-tag">{job.experienceLevel || 'Mid'}</span>
               <span className="card-tag">{job.source}</span>
               <span style={{marginLeft:'auto', fontSize:'0.7rem'}}>{job.datePosted}</span>
             </div>
@@ -150,9 +155,17 @@ export default function Jobs({ searchQuery }) {
         </a>
       ))}
 
-      {filtered.length === 0 && (
+      {!loading && displayJobs.length === 0 && (
         <div style={{textAlign:'center', padding:'3rem 0', color:'var(--fg-dim)', fontSize:'0.85rem'}}>
           No jobs match your filters.
+        </div>
+      )}
+
+      {!loading && paginated < filtered.length && (
+        <div style={{textAlign:'center', padding:'1rem'}}>
+          <button onClick={loadMore} className="theme-btn" style={{padding:'0.4rem 1.2rem'}}>
+            LOAD MORE ({filtered.length - paginated} remaining)
+          </button>
         </div>
       )}
     </div>
