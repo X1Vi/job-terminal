@@ -6,7 +6,7 @@ export default function TerminalLayout({ theme, setTheme, searchQuery, setSearch
     <div className="terminal-layout">
       <header className="terminal-header">
         <div className="terminal-logo">
-          {'>'} JOB<span>_TERMINAL</span> <span style={{fontSize:'0.7rem', opacity:0.5}}>v1.0.0</span>
+          {'>'} JOB<span>_TERMINAL</span> <span style={{fontSize:'0.7rem', opacity:0.5}}>v2.0.0</span>
         </div>
 
         <nav className="terminal-nav">

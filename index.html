@@ -2,12 +2,17 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="Multi-source job & opportunity aggregator — jobs, scholarships, fellowships and grants in one terminal-style dashboard." />
+    <meta name="theme-color" content="#1a201a" />
     <title>JOB TERMINAL — Multi-Source Job Aggregator</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+    <script>
+      window.__jd = {
+        jobStats: fetch('./data/job-stats.json').then(r => (r.ok ? r.json() : null)).catch(() => null),
+        oppStats: fetch('./data/opp-stats.json').then(r => (r.ok ? r.json() : null)).catch(() => null)
+      }
+    </script>
   </head>
   <body>
     <div id="root"></div>

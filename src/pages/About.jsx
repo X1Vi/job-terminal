@@ -1,4 +1,4 @@
-import { SOURCES, THEMES, SOURCE_CATEGORIES, OPP_SOURCES, OPP_TYPES, OPP_FIELDS, OPP_REGIONS } from '../data/sources'
+import { SOURCES, THEMES, OPP_SOURCES, OPP_TYPES, OPP_FIELDS, OPP_REGIONS } from '../data/sources'
 
 export default function About() {
   const freeCount = SOURCES.filter(s => s.free).length
@@ -11,7 +11,7 @@ export default function About() {
     <div className="about-container">
       <div className="about-box">
         <div className="about-box-header">
-          {'>'} JOB TERMINAL <span style={{fontSize:'0.8rem', opacity:0.5}}>v1.0.0</span>
+          {'>'} JOB TERMINAL <span style={{fontSize:'0.8rem', opacity:0.5}}>v2.0.0</span>
         </div>
         <div className="about-box-body">
           <div className="about-section">
@@ -73,16 +73,24 @@ export default function About() {
           </div>
 
           <div className="about-section">
+            <div className="about-section-title">[ DATA PIPELINE ]</div>
+            <div className="about-feature"><span className="about-key">npm run collect</span> — fetches every source in parallel, merges with the previous snapshot, prunes stale listings, dedupes and pre-computes all statistics</div>
+            <div className="about-feature">Output is compact static JSON in <span className="about-key">/data/</span> (jobs, opportunities + stats) served directly from the CDN edge — page load is instant, no client-side scraping</div>
+            <div className="about-feature">If a source is down, its previous items are retained automatically; the site never goes empty because a feed hiccuped</div>
+            <div className="about-feature">Scheduled refresh runs on Cloudflare's build machines via a deploy hook — GitHub Actions only triggers it (~10s of compute)</div>
+            <div className="about-feature">No snapshot available? The site falls back to fetching live in the browser</div>
+          </div>
+
+          <div className="about-section">
             <div className="about-section-title">[ FEATURES ]</div>
-            <div className="about-feature">Live job aggregation from CORS-friendly APIs (RemoteOK, Remotive, Arbeitnow, Jobicy, HN Who is Hiring)</div>
-            <div className="about-feature">Live scholarship, fellowship & grant RSS feeds (Scholars4Dev, OpportunityDesk, AfterSchool Africa, Opportunities For Youth, NSF Funding)</div>
-            <div className="about-feature">More sources planned (Greenhouse, Lever, Ashby, LinkedIn, Indeed, Adzuna, USAJobs...)</div>
-            <div className="about-feature">Client-side deduplication engine (title + org fingerprint + Jaccard similarity)</div>
-            <div className="about-feature">Real-time search & filtering by type, region, field, remote, experience</div>
-            <div className="about-feature">Stats dashboard with relevancy & distribution charts</div>
+            <div className="about-feature">Job sources: RemoteOK, Remotive, Arbeitnow, Jobicy, HN Who is Hiring</div>
+            <div className="about-feature">Opportunity sources: Scholars4Dev, OpportunityDesk (fellowships, grants, internships), AfterSchool Africa, Opportunities For Youth, NSF Funding</div>
+            <div className="about-feature">Strong filtering: multi-token AND search with relevance ranking, phrase (&quot;quoted&quot;) and exclusion (-word) operators, auto-categorized jobs, salary floor, freshness window, work mode, type, level, source and category facets</div>
+            <div className="about-feature">Opportunity filters: type, region, field, deadline window (closing soon / rolling / open / expired) and relevance sort</div>
+            <div className="about-feature">Multi-level dedup engine (company + title fingerprint, fuzzy title token match, description similarity, best-item selection)</div>
+            <div className="about-feature">Extended statistics: postings timeline, median salary overall & by category, top companies, most-mentioned skills, hiring locations, deadline timeline and closing-soon list</div>
             <div className="about-feature">6 terminal color themes (easy on the eyes)</div>
-            <div className="about-feature">Zero backend — 100% client-side</div>
-            <div className="about-feature">Hostable on GitHub Pages</div>
+            <div className="about-feature">Deployable to Cloudflare Pages (see README) or any static host</div>
           </div>
 
           <div className="about-section">

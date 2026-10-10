@@ -1,5 +1,20 @@
 const cache = new Map()
 
+const IS_BROWSER = typeof window !== 'undefined'
+const UA = 'Mozilla/5.0 (compatible; job-terminal/1.0; +https://github.com/X1Vi/job-terminal)'
+const TIMEOUT_MS = 20000
+
+function requestInit() {
+  const init = {}
+  if (typeof AbortSignal !== 'undefined' && AbortSignal.timeout) {
+    init.signal = AbortSignal.timeout(TIMEOUT_MS)
+  }
+  if (!IS_BROWSER) {
+    init.headers = { 'user-agent': UA, accept: 'application/json, application/xml, text/xml, text/html, */*' }
+  }
+  return init
+}
+
 export function getCached(key, ttlMs = 300000) {
   const entry = cache.get(key)
   if (!entry) return null
@@ -21,7 +36,7 @@ export function setCache(key, data) {
 export async function fetchJson(url, ttlMs = 300000) {
   const cached = getCached(url, ttlMs)
   if (cached) return cached
-  const res = await fetch(url)
+  const res = await fetch(url, requestInit())
   if (!res.ok) throw new Error(`HTTP ${res.status}`)
   const data = await res.json()
   setCache(url, data)
@@ -29,11 +44,12 @@ export async function fetchJson(url, ttlMs = 300000) {
 }
 
 export async function fetchText(url, useProxy = false, ttlMs = 300000) {
-  const cacheKey = useProxy ? `proxy:${url}` : url
+  const proxied = useProxy && IS_BROWSER
+  const cacheKey = proxied ? `proxy:${url}` : url
   const cached = getCached(cacheKey, ttlMs)
   if (cached) return cached
-  const target = useProxy ? `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}` : url
-  const res = await fetch(target)
+  const target = proxied ? `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}` : url
+  const res = await fetch(target, requestInit())
   if (!res.ok) throw new Error(`HTTP ${res.status}`)
   const text = await res.text()
   setCache(cacheKey, text)

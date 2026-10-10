@@ -1,12 +1,11 @@
-import { useMemo, useState, useEffect, useCallback } from 'react'
-import { deduplicateJobs } from '../engine/dedup'
-import { fetchAllJobs } from '../api/jobFetchers'
-import { fetchOnce } from '../api/dataCache'
+import { useMemo, useState, useEffect, useCallback, useDeferredValue } from 'react'
+import { loadJobsSnapshot } from '../api/snapshot'
+import { parseQuery, matchJob, jobMatchesFilters, compareJobs, formatAge, daysAgo } from '../engine/filter'
 
-function formatSalary(min, max, currency) {
+function formatSalary(min, max, currency = 'USD') {
   if (!min && !max) return ''
-  const fmt = (n) => n >= 1000 ? `${(n / 1000).toFixed(0)}k` : String(n)
-  const sym = { USD: '$', EUR: '\u20ac', GBP: '\u00a3' }[currency] || (currency + ' ')
+  const fmt = (n) => (n >= 1000 ? `${(n / 1000).toFixed(0)}k` : String(n))
+  const sym = { USD: '$', EUR: '\u20ac', GBP: '\u00a3' }[currency] || `${currency} `
   if (min && max) return `${sym}${fmt(min)}-${fmt(max)}`
   if (min) return `${sym}${fmt(min)}+`
   return `${sym}up to ${fmt(max)}`
@@ -14,168 +13,204 @@ function formatSalary(min, max, currency) {
 
 function safe(v, fb = '') { return v ?? fb }
 
+const REMOTE_OPTIONS = ['Remote', 'Hybrid', 'On-site', 'Unknown']
+const TYPE_OPTIONS = ['Full-time', 'Part-time', 'Contract', 'Internship', 'Temporary', 'Other']
+const EXP_OPTIONS = ['Intern', 'Junior', 'Mid', 'Senior', 'Lead', 'Unknown']
+const SALARY_OPTIONS = [
+  ['50000', '$50k+'], ['100000', '$100k+'], ['150000', '$150k+'], ['200000', '$200k+'], ['250000', '$250k+'],
+]
+const AGE_OPTIONS = [
+  ['1', 'Last 24h'], ['3', 'Last 3 days'], ['7', 'Last 7 days'], ['14', 'Last 14 days'], ['30', 'Last 30 days'],
+]
+const SORT_OPTIONS = [
+  ['date', 'Newest'], ['relevance', 'Relevance'], ['oldest', 'Oldest'], ['salary', 'Salary'],
+  ['company', 'Company'], ['title', 'Title'], ['source', 'Source'],
+]
+const DEFAULTS = { source: 'all', category: 'all', remote: 'all', type: 'all', exp: 'all', salary: 'any', age: 'any', sort: 'date' }
+const EMPTY = []
+
+function freqSorted(items, key) {
+  const m = new Map()
+  for (const i of items) {
+    const v = i[key]
+    if (v) m.set(v, (m.get(v) || 0) + 1)
+  }
+  return [...m.entries()].sort((a, b) => b[1] - a[1]).map(([name, count]) => ({ name, count }))
+}
+
 export default function Jobs({ searchQuery }) {
-  const [allJobs, setAllJobs] = useState([])
+  const [snapshot, setSnapshot] = useState(null)
   const [loading, setLoading] = useState(true)
-  const [fetchErrors, setFetchErrors] = useState([])
-  const [category, setCategory] = useState('all')
-  const [remote, setRemote] = useState('all')
+  const [loadError, setLoadError] = useState('')
   const [keyword, setKeyword] = useState('')
-  const [sortBy, setSortBy] = useState('date')
-  const [showDedup, setShowDedup] = useState(true)
-  const [paginated, setPaginated] = useState(50)
+  const [filters, setFilters] = useState(DEFAULTS)
+  const filterKey = JSON.stringify([filters, keyword, searchQuery])
+  const [pageState, setPageState] = useState({ key: filterKey, size: 60 })
+  const paginated = pageState.key === filterKey ? pageState.size : 60
 
   useEffect(() => {
     let cancelled = false
-    setLoading(true)
-    fetchOnce('jobs', fetchAllJobs).then(({ jobs, errors }) => {
-      if (!cancelled) {
-        setAllJobs(jobs)
-        setFetchErrors(errors)
-        setLoading(false)
-      }
-    })
+    loadJobsSnapshot()
+      .then(snap => { if (!cancelled) { setSnapshot(snap); setLoading(false) } })
+      .catch(err => { if (!cancelled) { setLoadError(err?.message || 'load failed'); setLoading(false) } })
     return () => { cancelled = true }
   }, [])
 
-  const loadMore = useCallback(() => setPaginated(p => p + 50), [])
+  const items = snapshot?.items || EMPTY
+  const meta = snapshot?.meta
 
-  const { unique, duplicates, totalBefore, totalAfter, dupCount } = useMemo(
-    () => showDedup ? deduplicateJobs(allJobs)
-      : { unique: allJobs, duplicates: [], totalBefore: allJobs.length, totalAfter: allJobs.length, dupCount: 0 },
-    [allJobs, showDedup]
-  )
+  const sourceOptions = useMemo(() => freqSorted(items, 'source'), [items])
+  const categoryOptions = useMemo(() => freqSorted(items, 'category'), [items])
 
-  const categories = useMemo(() => {
-    const s = new Set()
-    for (const j of (showDedup ? unique : allJobs)) {
-      if (j.category) s.add(j.category)
-    }
-    return ['all', ...s]
-  }, [allJobs, showDedup, unique])
+  const rawQuery = [keyword, searchQuery].filter(Boolean).join(' ')
+  const deferredQuery = useDeferredValue(rawQuery)
+  const query = useMemo(() => parseQuery(deferredQuery), [deferredQuery])
 
   const filtered = useMemo(() => {
-    let jobs = showDedup ? unique : allJobs
-    if (category !== 'all') jobs = jobs.filter(j => j.category === category)
-    if (remote !== 'all') jobs = jobs.filter(j => (j.remote || '').toLowerCase() === remote)
-
-    const k = (keyword || searchQuery || '').toLowerCase()
-    if (k) {
-      jobs = jobs.filter(j =>
-        (j.title || '').toLowerCase().includes(k) ||
-        (j.company || '').toLowerCase().includes(k) ||
-        (j.description || '').toLowerCase().includes(k) ||
-        (j.location || '').toLowerCase().includes(k)
-      )
+    if (!items.length) return []
+    const scored = []
+    for (const job of items) {
+      if (!jobMatchesFilters(job, filters)) continue
+      const score = matchJob(job, query)
+      if (score < 0) continue
+      scored.push({ job, score })
     }
-
-    return [...jobs].sort((a, b) => {
-      if (sortBy === 'date') {
-        const da = a.datePosted || '', db = b.datePosted || ''
-        return db.localeCompare(da)
-      }
-      if (sortBy === 'company') return (a.company || '').localeCompare(b.company || '')
-      if (sortBy === 'title') return (a.title || '').localeCompare(b.title || '')
-      if (sortBy === 'source') return (a.source || '').localeCompare(b.source || '')
-      return 0
-    })
-  }, [category, remote, keyword, sortBy, searchQuery, showDedup, unique, allJobs])
+    scored.sort((a, b) => compareJobs(a.job, b.job, filters.sort, a.score, b.score))
+    return scored.map(s => s.job)
+  }, [items, filters, query])
 
   const displayJobs = useMemo(() => filtered.slice(0, paginated), [filtered, paginated])
+  const loadMore = useCallback(() => {
+    setPageState(prev => ({ key: filterKey, size: (prev.key === filterKey ? prev.size : 60) + 60 }))
+  }, [filterKey])
+
+  const setFilter = (key, value) => setFilters(f => ({ ...f, [key]: value }))
+  const activeCount = Object.keys(DEFAULTS).filter(k => filters[k] !== DEFAULTS[k]).length + (keyword || searchQuery ? 1 : 0)
 
   return (
     <div>
       <div className="jobs-toolbar">
-        <select value={category} onChange={e => setCategory(e.target.value)}>
-          {categories.map(c => (
-            <option key={c} value={c}>
-              {c === 'all' ? 'All Categories' : c}
-            </option>
-          ))}
-        </select>
-
-        <select value={remote} onChange={e => setRemote(e.target.value)}>
-          <option value="all">All Modes</option>
-          <option value="remote">Remote</option>
-          <option value="on-site">On-site</option>
-          <option value="hybrid">Hybrid</option>
-        </select>
-
         <input
-          type="text" placeholder="keyword..."
+          type="text" placeholder="keyword... (try: react remote -senior &quot;full stack&quot;)"
           value={keyword} onChange={e => setKeyword(e.target.value)}
-          style={{background:'var(--bg)', border:'1px solid var(--border)', borderRadius:'3px',
-            color:'var(--fg)', padding:'0.3rem 0.45rem', fontFamily:'inherit', fontSize:'0.78rem',
-            outline:'none', minWidth:'120px'}}
+          className="filter-input"
         />
 
-        <select value={sortBy} onChange={e => setSortBy(e.target.value)}>
-          <option value="date">Sort: Newest</option>
-          <option value="company">Sort: Company</option>
-          <option value="title">Sort: Title</option>
-          <option value="source">Sort: Source</option>
+        <select value={filters.source} onChange={e => setFilter('source', e.target.value)}>
+          <option value="all">All Sources</option>
+          {sourceOptions.map(s => <option key={s.name} value={s.name}>{s.name} ({s.count})</option>)}
         </select>
 
-        <label style={{fontSize:'0.75rem', color:'var(--fg-dim)', display:'flex', alignItems:'center', gap:'0.3rem', cursor:'pointer'}}>
-          <input type="checkbox" checked={showDedup} onChange={e => setShowDedup(e.target.checked)}
-            style={{accentColor:'var(--fg)'}} />
-          Dedup
-        </label>
+        <select value={filters.category} onChange={e => setFilter('category', e.target.value)}>
+          <option value="all">All Categories</option>
+          {categoryOptions.map(c => <option key={c.name} value={c.name}>{c.name} ({c.count})</option>)}
+        </select>
+
+        <select value={filters.remote} onChange={e => setFilter('remote', e.target.value)}>
+          <option value="all">All Modes</option>
+          {REMOTE_OPTIONS.map(r => <option key={r} value={r}>{r}</option>)}
+        </select>
+
+        <select value={filters.type} onChange={e => setFilter('type', e.target.value)}>
+          <option value="all">All Types</option>
+          {TYPE_OPTIONS.map(t => <option key={t} value={t}>{t}</option>)}
+        </select>
+
+        <select value={filters.exp} onChange={e => setFilter('exp', e.target.value)}>
+          <option value="all">All Levels</option>
+          {EXP_OPTIONS.map(x => <option key={x} value={x}>{x}</option>)}
+        </select>
+
+        <select value={filters.salary} onChange={e => setFilter('salary', e.target.value)}>
+          <option value="any">Any Salary</option>
+          {SALARY_OPTIONS.map(([v, n]) => <option key={v} value={v}>{n}</option>)}
+        </select>
+
+        <select value={filters.age} onChange={e => setFilter('age', e.target.value)}>
+          <option value="any">Any Date</option>
+          {AGE_OPTIONS.map(([v, n]) => <option key={v} value={v}>{n}</option>)}
+        </select>
+
+        <select value={filters.sort} onChange={e => setFilter('sort', e.target.value)}>
+          {SORT_OPTIONS.map(([v, n]) => <option key={v} value={v}>Sort: {n}</option>)}
+        </select>
+
+        {activeCount > 0 && (
+          <button className="filter-reset" onClick={() => { setFilters(DEFAULTS); setKeyword('') }}>
+            RESET ({activeCount})
+          </button>
+        )}
 
         <div className="jobs-count">
-          {loading ? 'fetching...' : `${displayJobs.length} / ${showDedup ? totalAfter : allJobs.length}`}
+          {loading ? 'loading...' : `${displayJobs.length} / ${filtered.length}${filtered.length !== items.length ? ` of ${items.length}` : ''}`}
         </div>
       </div>
 
       {loading && (
         <div style={{textAlign:'center', padding:'3rem 0', color:'var(--fg-dim)', fontSize:'0.85rem'}}>
-          <div>Fetching jobs from RemoteOK, Remotive, Arbeitnow, Jobicy, HN...</div>
+          Loading data snapshot...
         </div>
       )}
 
-      {!loading && fetchErrors.length > 0 && (
+      {!loading && loadError && (
         <div className="jobs-dedup-info" style={{borderStyle:'solid', borderColor:'#b85050'}}>
-          <strong>WARN:</strong> {fetchErrors.length} source(s) failed. Refresh to retry.
+          <strong>ERR:</strong> {loadError}
         </div>
       )}
 
-      {showDedup && dupCount > 0 && (
+      {!loading && meta && (
         <div className="jobs-dedup-info">
-          <strong>DEDUP:</strong> {dupCount} duplicate{dupCount !== 1 ? 's' : ''} removed ({totalAfter} unique)
+          <strong>{meta.mode === 'live' ? 'LIVE:' : 'SNAPSHOT:'}</strong>{' '}
+          {meta.mode === 'live' ? 'fetched straight from sources' : `${formatAge(meta.generatedAt)} · ${meta.rawCount} fetched`}
+          {' · '}{meta.dupesRemoved} duplicate{meta.dupesRemoved !== 1 ? 's' : ''} removed · {meta.sourceCounts ? Object.keys(meta.sourceCounts).length : 0} sources
+          {meta.errors?.length > 0 && <span style={{color:'#b85050'}}> · {meta.errors.length} source(s) failed</span>}
         </div>
       )}
 
-      {displayJobs.map((job, i) => (
-        <a href={safe(job.url)} key={`${job.source}-${i}`} target="_blank" rel="noopener noreferrer"
-          style={{display:'block', textDecoration:'none', color:'inherit'}}>
-          <div className="card">
-            <div className="card-title">{safe(job.title, 'Untitled')}</div>
-            <div className="card-meta">
-              <span>{safe(job.company)}</span>
-              <span>{safe(job.location)}</span>
-              <span>{formatSalary(job.salaryMin, job.salaryMax, job.salaryCurrency)}</span>
-            </div>
-            {job.description && job.description.length > 10 && (
-              <div style={{fontSize:'0.7rem', color:'var(--fg-dim)', marginTop:'0.25rem', lineHeight:'1.3', opacity:0.7, display:'-webkit-box', WebkitLineClamp:2, WebkitBoxOrient:'vertical', overflow:'hidden'}}>
-                {safe(job.description).slice(0, 200)}
+      {displayJobs.map((job, i) => {
+        const age = daysAgo(job.datePosted)
+        const isNew = age <= 2
+        return (
+          <a href={safe(job.url)} key={`${job.source}-${job.title}-${i}`} target="_blank" rel="noopener noreferrer"
+            style={{display:'block', textDecoration:'none', color:'inherit'}}>
+            <div className="card">
+              <div className="card-title">{safe(job.title, 'Untitled')}</div>
+              <div className="card-meta">
+                <span>{safe(job.company)}</span>
+                <span>{safe(job.location)}</span>
+                <span>{formatSalary(job.salaryMin, job.salaryMax, job.salaryCurrency)}</span>
               </div>
-            )}
-            <div className="card-meta" style={{marginTop:'0.3rem'}}>
-              <span className={`card-tag ${safe(job.remote) === 'Remote' ? 'green' : safe(job.remote) === 'Hybrid' ? 'amber' : 'blue'}`}>
-                {safe(job.remote, 'Remote')}
-              </span>
-              <span className="card-tag">{safe(job.jobType, 'Full-time')}</span>
-              <span className="card-tag">{safe(job.experienceLevel, 'Mid')}</span>
-              <span className="card-tag">{safe(job.source)}</span>
-              <span style={{marginLeft:'auto', fontSize:'0.7rem'}}>{safe(job.datePosted)}</span>
+              {job.description && job.description.length > 10 && (
+                <div className="card-desc">
+                  {safe(job.description).slice(0, 200)}
+                </div>
+              )}
+              <div className="card-meta" style={{marginTop:'0.3rem'}}>
+                {isNew && <span className="card-tag green">NEW</span>}
+                <span className={`card-tag ${safe(job.remote) === 'Remote' ? 'green' : safe(job.remote) === 'Hybrid' ? 'amber' : safe(job.remote) === 'On-site' ? 'blue' : ''}`}>
+                  {safe(job.remote, 'Remote')}
+                </span>
+                <span className="card-tag">{safe(job.jobType, 'Full-time')}</span>
+                <span className="card-tag">{safe(job.experienceLevel, 'Mid')}</span>
+                <span className="card-tag">{safe(job.category)}</span>
+                <span className="card-tag">{safe(job.source)}</span>
+                <span style={{marginLeft:'auto', fontSize:'0.7rem'}}>
+                  {safe(job.datePosted)} {age !== Infinity && <span style={{opacity:0.6}}>({formatAge(job.datePosted)})</span>}
+                </span>
+              </div>
             </div>
-          </div>
-        </a>
-      ))}
+          </a>
+        )
+      })}
 
-      {!loading && displayJobs.length === 0 && (
+      {!loading && !loadError && displayJobs.length === 0 && (
         <div style={{textAlign:'center', padding:'3rem 0', color:'var(--fg-dim)', fontSize:'0.85rem'}}>
           No jobs match your filters.
+          {activeCount > 0 && (
+            <div style={{marginTop:'0.6rem'}}>
+              <button className="filter-reset" onClick={() => { setFilters(DEFAULTS); setKeyword('') }}>CLEAR FILTERS</button>
+            </div>
+          )}
         </div>
       )}
 

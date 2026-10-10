@@ -1,187 +1,108 @@
-function normalize(str) {
-  return str?.toLowerCase().replace(/[^a-z0-9\s]/g, '').replace(/\s+/g, ' ').trim() || ''
+import { normalizeText, titleFingerprint, orgFingerprint, tokenSet, jaccardSets, cleanUrl } from './text.js'
+
+function hasSubstance(desc) {
+  return normalizeText(desc).length >= 40
 }
 
-function titleFingerprint(title) {
-  const n = normalize(title)
-  const words = n.split(/\s+/).filter(w => w.length > 2)
-  return [...new Set(words)].sort().join(' ')
+function scoreItem(item) {
+  let score = 0
+  if (item.salaryMin || item.salaryMax) score += 3
+  score += Math.min(normalizeText(item.description).length / 200, 2)
+  if (item.datePosted) score += 1
+  return score
 }
 
-function orgFingerprint(org) {
-  return normalize(org)
+function pickBest(a, b) {
+  return scoreItem(b) > scoreItem(a) ? b : a
 }
 
-function jaccardSimilarity(a, b) {
-  const setA = new Set(a.split(/\s+/))
-  const setB = new Set(b.split(/\s+/))
-  const intersection = new Set([...setA].filter(x => setB.has(x)))
-  const union = new Set([...setA, ...setB])
-  return union.size === 0 ? 0 : intersection.size / union.size
+function makeKey(org, title) {
+  return `${org}::${title}`
+}
+
+function dedupe(items, { orgFn, minTitleSim = 0.85, minDescSim = 0.3 }) {
+  const exact = new Map()
+  const byOrg = new Map()
+  const unique = []
+  const duplicates = []
+
+  const addEntry = (item, titleFP, orgFP) => {
+    const entry = { item, titleFP, orgFP, idx: unique.length }
+    unique.push(item)
+    exact.set(makeKey(orgFP, titleFP), entry)
+    if (orgFP) {
+      const group = byOrg.get(orgFP)
+      if (group) group.push(entry)
+      else byOrg.set(orgFP, [entry])
+    }
+  }
+
+  for (const item of items) {
+    if (!item || !item.title) continue
+    const titleFP = titleFingerprint(item.title)
+    const orgFP = orgFn(item)
+    if (!titleFP) {
+      addEntry(item, titleFP, orgFP)
+      continue
+    }
+
+    let match = exact.get(makeKey(orgFP, titleFP)) || null
+    const titleTokens = new Set(titleFP.split(' '))
+
+    if (!match && orgFP) {
+      const group = byOrg.get(orgFP)
+      if (group) {
+        for (const entry of group) {
+          if (jaccardSets(tokenSet(entry.titleFP), titleTokens) >= minTitleSim) {
+            match = entry
+            break
+          }
+        }
+      }
+    }
+
+    if (match) {
+      const descA = normalizeText(match.item.description)
+      const descB = normalizeText(item.description)
+      const sim = jaccardSets(tokenSet(descA), tokenSet(descB))
+      if (!hasSubstance(descA) || !hasSubstance(descB) || sim >= minDescSim) {
+        const winner = pickBest(match.item, item)
+        const loser = winner === match.item ? item : match.item
+        if (winner !== match.item) {
+          match.item = winner
+          unique[match.idx] = winner
+        }
+        duplicates.push({ kept: winner, removed: loser, reason: 'same role' })
+        continue
+      }
+    }
+
+    addEntry(item, titleFP, orgFP)
+  }
+
+  return { unique, duplicates, totalBefore: items.length, totalAfter: unique.length, dupCount: duplicates.length }
 }
 
 export function deduplicateJobs(jobs) {
-  const seen = new Map()
-  const duplicates = []
-  const unique = []
-
-  for (const job of jobs) {
-    const titleFP = titleFingerprint(job.title)
-    const companyFP = orgFingerprint(job.company || '')
-    const key = `${companyFP}::${titleFP}`
-
-    if (seen.has(key)) {
-      const existing = seen.get(key)
-      const descSim = jaccardSimilarity(
-        normalize(job.description || ''),
-        normalize(existing.description || '')
-      )
-      if (descSim >= 0.5) {
-        duplicates.push({ kept: existing, removed: job, reason: 'same role' })
-        continue
-      }
-    }
-
-    seen.set(key, job)
-    unique.push(job)
-  }
-
-  return { unique, duplicates, totalBefore: jobs.length, totalAfter: unique.length, dupCount: duplicates.length }
+  return dedupe(jobs, {
+    orgFn: job => orgFingerprint(job.company || ''),
+  })
 }
 
 export function deduplicateOpportunities(opps) {
-  const seen = new Map()
-  const duplicates = []
-  const unique = []
-
-  for (const opp of opps) {
-    const titleFP = titleFingerprint(opp.title)
-    const orgFP = orgFingerprint(opp.organization || opp.provider || '')
-    const key = `${orgFP}::${titleFP}`
-
-    if (seen.has(key)) {
-      const existing = seen.get(key)
-      const descSim = jaccardSimilarity(
-        normalize(opp.description || ''),
-        normalize(existing.description || '')
-      )
-      if (descSim >= 0.5) {
-        duplicates.push({ kept: existing, removed: opp, reason: 'same opportunity' })
-        continue
-      }
-    }
-
-    seen.set(key, opp)
-    unique.push(opp)
-  }
-
-  return { unique, duplicates, totalBefore: opps.length, totalAfter: unique.length, dupCount: duplicates.length }
+  return dedupe(opps, {
+    orgFn: opp => orgFingerprint(opp.organization || opp.provider || opp.source || ''),
+  })
 }
 
-export function calculateStats(jobs) {
-  const { unique, duplicates } = deduplicateJobs(jobs)
-
-  const bySource = {}
-  const byCategory = {}
-  const byRemote = { remote: 0, onsite: 0, hybrid: 0, unknown: 0 }
-  const byJobType = {}
-  const byExperience = {}
-  const byDate = {}
-  const salaryData = []
-  const matchScores = []
-
-  for (const job of unique) {
-    const src = job.source || 'unknown'
-    bySource[src] = (bySource[src] || 0) + 1
-
-    const cat = job.category || 'Uncategorized'
-    byCategory[cat] = (byCategory[cat] || 0) + 1
-
-    const remote = (job.remote || 'unknown').toLowerCase()
-    if (byRemote[remote] !== undefined) byRemote[remote]++
-    else byRemote.unknown++
-
-    const jt = job.jobType || 'Not specified'
-    byJobType[jt] = (byJobType[jt] || 0) + 1
-
-    const el = job.experienceLevel || 'Not specified'
-    byExperience[el] = (byExperience[el] || 0) + 1
-
-    if (job.datePosted) {
-      const d = job.datePosted.slice(0, 10)
-      byDate[d] = (byDate[d] || 0) + 1
-    }
-
-    if (job.salaryMin || job.salaryMax) {
-      salaryData.push({
-        title: job.title,
-        company: job.company,
-        min: job.salaryMin || 0,
-        max: job.salaryMax || 0,
-        currency: job.salaryCurrency || 'USD',
-      })
-    }
-
-    if (job.matchScore) {
-      matchScores.push(job.matchScore)
-    }
-  }
-
-  return {
-    totalRaw: jobs.length,
-    totalUnique: unique.length,
-    duplicatesRemoved: duplicates.length,
-    dedupRate: jobs.length > 0 ? ((duplicates.length / jobs.length) * 100).toFixed(1) : '0',
-    bySource,
-    byCategory,
-    byRemote,
-    byJobType,
-    byExperience,
-    byDate,
-    salaryData,
-    matchScores,
-    avgMatchScore: matchScores.length > 0
-      ? (matchScores.reduce((a, b) => a + b, 0) / matchScores.length).toFixed(1)
-      : null,
-  }
+export function jobKey(job) {
+  const u = cleanUrl(job.url)
+  if (u && u !== '#') return `u:${u}`
+  return `k:${orgFingerprint(job.company || '')}::${titleFingerprint(job.title || '')}`
 }
 
-export function calculateOppStats(opps) {
-  const { unique, duplicates } = deduplicateOpportunities(opps)
-
-  const byType = {}
-  const byRegion = {}
-  const byField = {}
-  const bySource = {}
-  const byDeadline = {}
-
-  for (const opp of unique) {
-    const type = opp.opportunityType || opp.type || 'other'
-    byType[type] = (byType[type] || 0) + 1
-
-    const region = opp.region || opp.location || 'International'
-    byRegion[region] = (byRegion[region] || 0) + 1
-
-    const field = opp.field || 'General'
-    byField[field] = (byField[field] || 0) + 1
-
-    const src = opp.source || opp.sourceName || 'unknown'
-    bySource[src] = (bySource[src] || 0) + 1
-
-    if (opp.deadline) {
-      byDeadline[opp.deadline] = (byDeadline[opp.deadline] || 0) + 1
-    }
-  }
-
-  return {
-    totalRaw: opps.length,
-    totalUnique: unique.length,
-    duplicatesRemoved: duplicates.length,
-    dedupRate: opps.length > 0 ? ((duplicates.length / opps.length) * 100).toFixed(1) : '0',
-    byType,
-    byRegion,
-    byField,
-    bySource,
-    byDeadline,
-  }
+export function oppKey(opp) {
+  const u = cleanUrl(opp.url)
+  if (u && u !== '#') return `u:${u}`
+  return `k:${orgFingerprint(opp.organization || opp.source || '')}::${titleFingerprint(opp.title || '')}`
 }

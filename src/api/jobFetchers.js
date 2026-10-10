@@ -1,4 +1,4 @@
-import { fetchJson } from './corsProxy'
+import { fetchJson } from './corsProxy.js'
 
 function stripHtml(s) {
   return String(s || '').replace(/<[^>]+>/g, ' ').replace(/https?:\/\/\S+/g, '').replace(/\s+/g, ' ').trim()
@@ -147,21 +147,23 @@ const JOB_FETCHERS = {
 }
 
 export async function fetchAllJobs(sources = Object.keys(JOB_FETCHERS)) {
-  const results = await Promise.allSettled(
+  const results = await Promise.all(
     sources.filter(s => JOB_FETCHERS[s]).map(async source => {
-      const jobs = await JOB_FETCHERS[source]()
-      return { source, jobs, ok: true }
+      try {
+        const jobs = await JOB_FETCHERS[source]()
+        return { source, jobs, ok: true }
+      } catch (e) {
+        return { source, ok: false, error: e?.message || 'unknown error' }
+      }
     })
   )
 
   const allJobs = []
   const errors = []
   for (const r of results) {
-    if (r.status === 'fulfilled' && r.value.ok) {
-      allJobs.push(...r.value.jobs)
-    } else if (r.status === 'rejected') {
-      errors.push(r.reason?.message || `unknown error`)
-    }
+    if (r.ok && r.jobs.length) allJobs.push(...r.jobs)
+    else if (r.ok) errors.push(`${r.source}: returned 0 items`)
+    else errors.push(`${r.source}: ${r.error}`)
   }
   return { jobs: allJobs, errors, sourceCount: sources.length }
 }
