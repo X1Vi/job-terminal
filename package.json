@@ -14,7 +14,8 @@
     "build:data": "npm run collect && npm run build",
     "preview": "vite preview",
     "deploy": "npm run build:data && gh-pages -d dist",
-    "deploy:cf": "npm run build:data && npx -y wrangler pages deploy",
+    "deploy:cf": "npm run build:data && npx -y wrangler deploy",
+    "dev:cf": "npx -y wrangler dev",
     "lint": "oxlint"
   },
   "dependencies": {

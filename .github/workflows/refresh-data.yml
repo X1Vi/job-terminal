@@ -1,15 +1,20 @@
 name: Refresh data
 
-# Cloudflare builds the site (collect + vite build) when this hook fires.
-# GitHub compute for this workflow is ~10 seconds — the heavy lifting runs on Cloudflare.
+# Rebuilds the data snapshot and deploys the Worker (static assets) every 6 hours.
+# For Workers, the deploy itself must upload fresh assets, so this workflow runs
+# the ~3s collector + vite build + `wrangler deploy` (~1-2 min total on GitHub).
 #
 # Setup (one time):
-#   1. Cloudflare Dashboard → Workers & Pages → job-terminal → Settings → Builds & deployments
-#      Build command:  npm run build:data
-#      Build output:   dist
-#   2. Settings → Builds & deployments → Deploy hooks → create a hook (branch: main)
-#   3. GitHub repo → Settings → Secrets → Actions → add secret
-#      CLOUDFLARE_DEPLOY_HOOK = <deploy hook URL>
+#   1. Create a Cloudflare API token (My Profile → API Tokens) with:
+#        Account: Workers Scripts (edit)
+#      and copy your Account ID (Workers & Pages → Overview, right sidebar).
+#   2. GitHub repo → Settings → Secrets and variables → Actions:
+#        CLOUDFLARE_API_TOKEN  = <token>
+#        CLOUDFLARE_ACCOUNT_ID = <account id>
+#   3. Optional repository variable (Settings → Secrets and variables → Actions → Variables):
+#        SNAPSHOT_URL = https://job-terminal.<your-subdomain>.workers.dev
+#      Lets each CI run merge fresh data with the live snapshot so a source
+#      outage never drops listings between deploys.
 
 on:
   schedule:
@@ -21,17 +26,33 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  trigger:
+  refresh:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 10
     steps:
-      - name: Trigger Cloudflare Pages rebuild
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Collect data snapshot
         env:
-          DEPLOY_HOOK: ${{ secrets.CLOUDFLARE_DEPLOY_HOOK }}
+          SNAPSHOT_URL: ${{ vars.SNAPSHOT_URL }}
+        run: npm run collect
+
+      - run: npm run build
+
+      - name: Deploy to Cloudflare Workers
+        env:
+          CF_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CF_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: |
-          if [ -z "$DEPLOY_HOOK" ]; then
-            echo "CLOUDFLARE_DEPLOY_HOOK secret not set — skipping. See README."
+          if [ -z "$CF_API_TOKEN" ] || [ -z "$CF_ACCOUNT_ID" ]; then
+            echo "CLOUDFLARE_API_TOKEN / CLOUDFLARE_ACCOUNT_ID not set — skipping deploy. See README."
             exit 0
           fi
-          curl -fsS -X POST "$DEPLOY_HOOK"
-          echo "Cloudflare rebuild triggered."
+          CLOUDFLARE_API_TOKEN="$CF_API_TOKEN" CLOUDFLARE_ACCOUNT_ID="$CF_ACCOUNT_ID" npx -y wrangler deploy

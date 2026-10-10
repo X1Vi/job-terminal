@@ -21,7 +21,7 @@ scripts/collect.mjs            (runs on Cloudflare build or locally, ~8s, no dep
        ├─ job-stats.json   pre-computed chart-ready statistics
        └─ opp-stats.json   pre-computed opportunity statistics
 
-vite build → dist/ → Cloudflare Pages / any static host
+vite build → dist/ (assets + JSON) → wrangler deploy → Cloudflare Workers static assets
 Browser → loads JSON from /data/* (cached at edge, 5 min TTL) → filters locally
 ```
 
@@ -41,42 +41,51 @@ npm run build:data  # collect + build (what CI runs)
 > Without a snapshot the site still works — it falls back to live client-side
 > fetching — but the snapshot path is much faster.
 
-## Deploy to Cloudflare Pages
+## Deploy to Cloudflare Workers (static assets)
 
-### Option A — Git integration + scheduled refresh (recommended, minimal GitHub compute)
+The site is served by a Workers **static assets** deployment — `wrangler.toml`
+points at `dist/`, so `wrangler deploy` uploads the built site plus the data
+snapshot in one operation. `public/_headers` cache rules work on Workers too.
 
-1. Cloudflare Dashboard → **Workers & Pages → Create → Pages → Connect to Git**,
-   pick this repo.
-2. Settings → **Builds & deployments**:
+### Option A — Workers Builds (Git integration)
+
+1. Cloudflare Dashboard → **Workers & Pages → Create application → Import a repository**.
+2. Pick this repo. Set:
    - Build command: `npm run build:data`
-   - Build output directory: `dist`
-   - (Recommended) Environment variable: `NODE_VERSION = 20`
-   - (Optional) `SNAPSHOT_URL = https://<your-project>.pages.dev` — lets each
-     build merge fresh data with the live snapshot, so a source outage never
-     drops listings between deploys.
-3. Settings → **Deploy hooks** → create a hook on `main`, copy the URL.
-4. GitHub repo → Settings → Secrets and variables → Actions → add
-   `CLOUDFLARE_DEPLOY_HOOK` = that URL.
+   - Deploy command: `npx wrangler deploy` (default)
+   - (Recommended) Build variable: `NODE_VERSION = 22` (Wrangler 4 requires Node 22+)
+   - (Optional) Build variable: `SNAPSHOT_URL = https://<your-worker>.<subdomain>.workers.dev` —
+     lets each build merge fresh data with the live snapshot so a source
+     outage never drops listings between deploys.
+3. Save and deploy. The Worker name in the dashboard must match `name` in
+   `wrangler.toml` (`job-terminal`) — rename one of them if you prefer another.
+4. Scheduled data refresh: add the repo secrets in the next section — the
+   included workflow rebuilds + redeploys every 6 hours without any pushes.
 
-Every 6 hours the GitHub workflow just `curl`s the deploy hook (~10 seconds of
-GitHub Actions compute). The actual collection + build runs on Cloudflare's
-builders for free. Manual refresh: run the workflow from the Actions tab.
-
-### Option B — Direct upload from your machine
+### Option B — Deploy from your machine
 
 ```bash
-npx wrangler login        # one time
-npm run deploy:cf         # collect + build + wrangler pages deploy
+npx wrangler login        # one time (needs Node 22+)
+npm run deploy:cf         # collect + build + wrangler deploy
+npm run dev:cf            # local preview through the Workers runtime
 ```
 
-`wrangler.toml` already points at the `dist` output — rename the project there
-if you like (or use any project name you created in the dashboard).
+> Wrangler 4 requires **Node 22 or newer** for the `deploy:cf` / `dev:cf`
+> commands. The collector itself only needs Node 18+.
 
-### Cache headers
+### Scheduled refresh (GitHub → Workers)
 
-`public/_headers` (Cloudflare Pages) sets `/data/*` to `max-age=300,
-stale-while-revalidate=86400` and hashed assets to immutable, so repeat visits
-barely touch the network.
+`.github/workflows/refresh-data.yml` runs every 6 hours (and on demand from the
+Actions tab): it collects fresh data, builds, and deploys with Wrangler. ~1–2
+minutes of GitHub compute per run; nothing else is needed.
+
+Set these repo secrets once (Settings → Secrets and variables → Actions):
+
+| Secret / variable | Value |
+| --- | --- |
+| `CLOUDFLARE_API_TOKEN` | API token with **Account → Workers Scripts (edit)** |
+| `CLOUDFLARE_ACCOUNT_ID` | Account ID (Workers & Pages → Overview sidebar) |
+| `SNAPSHOT_URL` *(optional variable)* | `https://job-terminal.<your-subdomain>.workers.dev` — enables merge-with-live-snapshot |
 
 ## Strong filtering
 
