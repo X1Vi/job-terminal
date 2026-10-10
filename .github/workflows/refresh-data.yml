@@ -1,6 +1,6 @@
 name: Refresh data
 
-# Rebuilds the data snapshot and deploys the Worker (static assets) every 6 hours.
+# Rebuilds the data snapshot and deploys the Worker (static assets) 3x per day.
 # For Workers, the deploy itself must upload fresh assets, so this workflow runs
 # the ~3s collector + vite build + `wrangler deploy` (~1-2 min total on GitHub).
 #
@@ -18,7 +18,7 @@ name: Refresh data
 
 on:
   schedule:
-    - cron: "17 */6 * * *"
+    - cron: "17 */8 * * *"
   workflow_dispatch:
 
 concurrency:

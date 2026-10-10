@@ -60,7 +60,7 @@ snapshot in one operation. `public/_headers` cache rules work on Workers too.
 3. Save and deploy. The Worker name in the dashboard must match `name` in
    `wrangler.toml` (`job-terminal`) — rename one of them if you prefer another.
 4. Scheduled data refresh: add the repo secrets in the next section — the
-   included workflow rebuilds + redeploys every 6 hours without any pushes.
+   included workflow rebuilds + redeploys 3 times a day without any pushes.
 
 ### Option B — Deploy from your machine
 
@@ -75,7 +75,7 @@ npm run dev:cf            # local preview through the Workers runtime
 
 ### Scheduled refresh (GitHub → Workers)
 
-`.github/workflows/refresh-data.yml` runs every 6 hours (and on demand from the
+`.github/workflows/refresh-data.yml` runs 3 times a day — every 8 hours (and on demand from the
 Actions tab): it collects fresh data, builds, and deploys with Wrangler. ~1–2
 minutes of GitHub compute per run; nothing else is needed.
 

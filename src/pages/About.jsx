@@ -77,7 +77,7 @@ export default function About() {
             <div className="about-feature"><span className="about-key">npm run collect</span> — fetches every source in parallel, merges with the previous snapshot, prunes stale listings, dedupes and pre-computes all statistics</div>
             <div className="about-feature">Output is compact static JSON in <span className="about-key">/data/</span> (jobs, opportunities + stats) served directly from the CDN edge — page load is instant, no client-side scraping</div>
             <div className="about-feature">If a source is down, its previous items are retained automatically; the site never goes empty because a feed hiccuped</div>
-            <div className="about-feature">Scheduled refresh runs every 6 hours and redeploys automatically (GitHub Actions → Cloudflare Workers)</div>
+            <div className="about-feature">Scheduled refresh runs 3 times a day and redeploys automatically (GitHub Actions → Cloudflare Workers)</div>
             <div className="about-feature">No snapshot available? The site falls back to fetching live in the browser</div>
           </div>
 
