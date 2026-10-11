@@ -79,6 +79,7 @@ export default function About() {
             <div className="about-feature">If a source is down, its previous items are retained automatically; the site never goes empty because a feed hiccuped</div>
             <div className="about-feature">Scheduled refresh runs 3 times a day and redeploys automatically (GitHub Actions → Cloudflare Workers)</div>
             <div className="about-feature">No snapshot available? The site falls back to fetching live in the browser</div>
+            <div className="about-feature">Stale snapshot (older than 12h)? The page shows it instantly, then quietly refreshes itself from the sources in the background and caches the result for 6h — so it never gets stuck on old data even if the scheduled job is down</div>
           </div>
 
           <div className="about-section">

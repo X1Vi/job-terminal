@@ -1,5 +1,6 @@
-import { useMemo, useState, useEffect, useCallback, useDeferredValue } from 'react'
-import { loadJobsSnapshot } from '../api/snapshot'
+import { useMemo, useState, useCallback, useDeferredValue } from 'react'
+import { loadJobsSnapshot, refreshJobsSnapshot } from '../api/snapshot'
+import { useSnapshot } from '../hooks/useSnapshot'
 import { parseQuery, matchJob, jobMatchesFilters, compareJobs, formatAge, daysAgo } from '../engine/filter'
 
 function formatSalary(min, max, currency = 'USD') {
@@ -39,22 +40,12 @@ function freqSorted(items, key) {
 }
 
 export default function Jobs({ searchQuery }) {
-  const [snapshot, setSnapshot] = useState(null)
-  const [loading, setLoading] = useState(true)
-  const [loadError, setLoadError] = useState('')
+  const { data: snapshot, loading, error: loadError, refreshing } = useSnapshot(loadJobsSnapshot, refreshJobsSnapshot)
   const [keyword, setKeyword] = useState('')
   const [filters, setFilters] = useState(DEFAULTS)
   const filterKey = JSON.stringify([filters, keyword, searchQuery])
   const [pageState, setPageState] = useState({ key: filterKey, size: 60 })
   const paginated = pageState.key === filterKey ? pageState.size : 60
-
-  useEffect(() => {
-    let cancelled = false
-    loadJobsSnapshot()
-      .then(snap => { if (!cancelled) { setSnapshot(snap); setLoading(false) } })
-      .catch(err => { if (!cancelled) { setLoadError(err?.message || 'load failed'); setLoading(false) } })
-    return () => { cancelled = true }
-  }, [])
 
   const items = snapshot?.items || EMPTY
   const meta = snapshot?.meta
@@ -164,6 +155,7 @@ export default function Jobs({ searchQuery }) {
           {meta.mode === 'live' ? 'fetched straight from sources' : `${formatAge(meta.generatedAt)} · ${meta.rawCount} fetched`}
           {' · '}{meta.dupesRemoved} duplicate{meta.dupesRemoved !== 1 ? 's' : ''} removed · {meta.sourceCounts ? Object.keys(meta.sourceCounts).length : 0} sources
           {meta.errors?.length > 0 && <span style={{color:'#b85050'}}> · {meta.errors.length} source(s) failed</span>}
+          {refreshing && <span className="refreshing"> · refreshing live…</span>}
         </div>
       )}
 

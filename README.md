@@ -39,7 +39,10 @@ npm run build:data  # collect + build (what CI runs)
 ```
 
 > Without a snapshot the site still works — it falls back to live client-side
-> fetching — but the snapshot path is much faster.
+> fetching. And if the deployed snapshot is older than 12 hours, the page renders
+> it instantly then silently refreshes live from the sources in the background
+> (caching the result for 6h), so it never gets stuck on a stale date even if the
+> scheduled refresh stops running.
 
 ## Deploy to Cloudflare Workers (static assets)
 

@@ -1,9 +1,10 @@
-import { useMemo, useState, useEffect } from 'react'
+import { useMemo, useState } from 'react'
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell
 } from 'recharts'
-import { loadJobStats, loadOppStats } from '../api/snapshot'
+import { loadJobStats, loadOppStats, refreshJobStats, refreshOppStats } from '../api/snapshot'
+import { useSnapshot } from '../hooks/useSnapshot'
 import { formatAge } from '../engine/filter'
 
 const CHART_COLORS = ['#78b878', '#c8944a', '#5aa8b8', '#b85050', '#8a7ab8', '#b8a060', '#5ab8a0', '#c87878']
@@ -98,22 +99,14 @@ function SectionHeader({ label }) {
 }
 
 export default function Dashboard() {
-  const [jStats, setJStats] = useState(null)
-  const [oStats, setOStats] = useState(null)
-  const [loading, setLoading] = useState(true)
+  const jobState = useSnapshot(loadJobStats, refreshJobStats)
+  const oppState = useSnapshot(loadOppStats, refreshOppStats)
   const [expandedChart, setExpandedChart] = useState(null)
 
-  useEffect(() => {
-    let cancelled = false
-    Promise.allSettled([loadJobStats(), loadOppStats()]).then(([jr, or]) => {
-      if (!cancelled) {
-        if (jr.status === 'fulfilled') setJStats(jr.value)
-        if (or.status === 'fulfilled') setOStats(or.value)
-        setLoading(false)
-      }
-    })
-    return () => { cancelled = true }
-  }, [])
+  const jStats = jobState.data
+  const oStats = oppState.data
+  const loading = jobState.loading || oppState.loading
+  const refreshing = jobState.refreshing || oppState.refreshing
 
   const salaryBuckets = useMemo(() => jStats?.salary?.buckets || [], [jStats])
   const salaryByCategory = useMemo(
@@ -152,6 +145,7 @@ export default function Dashboard() {
             {j.errors.length + (o.errors?.length || 0)} source error(s)
           </span>
         )}
+        {refreshing && <span className="refreshing">refreshing live…</span>}
       </div>
 
       <div className="stats-grid">

@@ -1,5 +1,6 @@
-import { useMemo, useState, useEffect, useCallback, useDeferredValue } from 'react'
-import { loadOpportunitiesSnapshot } from '../api/snapshot'
+import { useMemo, useState, useCallback, useDeferredValue } from 'react'
+import { loadOpportunitiesSnapshot, refreshOppsSnapshot } from '../api/snapshot'
+import { useSnapshot } from '../hooks/useSnapshot'
 import { parseQuery, matchOpp, oppMatchesFilters, compareOpps, deadlineState, formatDaysLeft, formatAge } from '../engine/filter'
 
 function safe(v, fb = '') { return v ?? fb }
@@ -32,23 +33,13 @@ function typeTagColor(type) {
 }
 
 export default function Opportunities({ searchQuery }) {
-  const [snapshot, setSnapshot] = useState(null)
-  const [loading, setLoading] = useState(true)
-  const [loadError, setLoadError] = useState('')
+  const { data: snapshot, loading, error: loadError, refreshing } = useSnapshot(loadOpportunitiesSnapshot, refreshOppsSnapshot)
   const [keyword, setKeyword] = useState('')
   const [filters, setFilters] = useState(DEFAULTS)
   const [now] = useState(() => Date.now())
   const filterKey = JSON.stringify([filters, keyword, searchQuery])
   const [pageState, setPageState] = useState({ key: filterKey, size: 100 })
   const paginated = pageState.key === filterKey ? pageState.size : 100
-
-  useEffect(() => {
-    let cancelled = false
-    loadOpportunitiesSnapshot()
-      .then(snap => { if (!cancelled) { setSnapshot(snap); setLoading(false) } })
-      .catch(err => { if (!cancelled) { setLoadError(err?.message || 'load failed'); setLoading(false) } })
-    return () => { cancelled = true }
-  }, [])
 
   const items = snapshot?.items || EMPTY
   const meta = snapshot?.meta
@@ -144,6 +135,7 @@ export default function Opportunities({ searchQuery }) {
           {meta.mode === 'live' ? 'fetched straight from feeds' : `${formatAge(meta.generatedAt)} · ${meta.rawCount} fetched`}
           {' · '}{meta.dupesRemoved} duplicate{meta.dupesRemoved !== 1 ? 's' : ''} removed · {sourceOptions.length} sources
           {meta.errors?.length > 0 && <span style={{color:'#b85050'}}> · {meta.errors.length} feed(s) failed</span>}
+          {refreshing && <span className="refreshing"> · refreshing live…</span>}
         </div>
       )}
 
