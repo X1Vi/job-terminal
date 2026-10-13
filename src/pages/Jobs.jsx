@@ -27,7 +27,7 @@ const SORT_OPTIONS = [
   ['date', 'Newest'], ['relevance', 'Relevance'], ['oldest', 'Oldest'], ['salary', 'Salary'],
   ['company', 'Company'], ['title', 'Title'], ['source', 'Source'],
 ]
-const DEFAULTS = { source: 'all', category: 'all', remote: 'all', type: 'all', exp: 'all', salary: 'any', age: 'any', sort: 'date' }
+const DEFAULTS = { location: '', source: 'all', category: 'all', remote: 'all', type: 'all', exp: 'all', salary: 'any', age: 'any', sort: 'date' }
 const EMPTY = []
 
 function freqSorted(items, key) {
@@ -84,6 +84,12 @@ export default function Jobs({ searchQuery }) {
         <input
           type="text" placeholder="keyword... (try: react remote -senior &quot;full stack&quot;)"
           value={keyword} onChange={e => setKeyword(e.target.value)}
+          className="filter-input"
+        />
+
+        <input
+          type="text" placeholder="location..."
+          value={filters.location} onChange={e => setFilter('location', e.target.value)}
           className="filter-input"
         />
 

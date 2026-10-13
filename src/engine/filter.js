@@ -148,6 +148,7 @@ export function formatDaysLeft(daysLeft) {
 }
 
 export function jobMatchesFilters(job, f) {
+  if (f.location && !(job.location || '').toLowerCase().includes(f.location.toLowerCase())) return false
   if (f.source !== 'all' && job.source !== f.source) return false
   if (f.category !== 'all' && job.category !== f.category) return false
   if (f.remote !== 'all' && job.remote !== f.remote) return false
